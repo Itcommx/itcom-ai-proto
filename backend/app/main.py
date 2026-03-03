@@ -1,32 +1,57 @@
-import os, time, json
+import json
+import os
+import time
+from collections.abc import Generator
+
 import requests
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 APP_NAME = os.getenv("APP_NAME", "ITCOM AI Prototype")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:latest")
 LOG_PATH = os.getenv("LOG_PATH", "/app/logs/requests.jsonl")
+NUM_PREDICT = int(os.getenv("NUM_PREDICT", "80"))
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+OLLAMA_RETRIES = 2
 
 app = FastAPI(title=APP_NAME)
 
-# CORS para que el frontend (8080) pueda llamar al backend (8000)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 class ChatRequest(BaseModel):
     message: str
     user: str | None = "board-demo"
 
+
+def build_prompt(message: str) -> str:
+    return f"Responde en español, claro y breve.\nPregunta: {message}\n"
+
+
+def append_log_event(user: str | None, took_ms: int, prompt_chars: int):
+    log_event = {
+        "ts": int(time.time()),
+        "user": user,
+        "model": OLLAMA_MODEL,
+        "took_ms": took_ms,
+        "prompt_chars": prompt_chars,
+    }
+
+    os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(log_event, ensure_ascii=False) + "\n")
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "app": APP_NAME, "model": OLLAMA_MODEL, "ollama_url": OLLAMA_URL}
+    return {
+        "status": "ok",
+        "app": APP_NAME,
+        "model": OLLAMA_MODEL,
+        "ollama_url": OLLAMA_URL,
+        "num_predict": NUM_PREDICT,
+    }
+
 
 @app.post("/chat")
 def chat(req: ChatRequest):
@@ -36,39 +61,113 @@ def chat(req: ChatRequest):
     if not msg:
         raise HTTPException(status_code=400, detail="message vacío")
 
-    # Prompt corto para demo (menos tokens = más rápido)
-    prompt = f"Responde en español, claro y breve.\nPregunta: {msg}\n"
-
     payload = {
         "model": OLLAMA_MODEL,
-        "prompt": prompt,
+        "prompt": build_prompt(msg),
         "stream": False,
-        "options": {
-            "num_predict": 80,
-            "temperature": 0.2
-        }
+        "options": {"num_predict": NUM_PREDICT, "temperature": 0.2},
     }
 
-    try:
-        r = requests.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=120)
-        r.raise_for_status()
-        data = r.json()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=502, detail=f"Error llamando a Ollama: {str(e)}")
+    last_error = None
+    data = None
+    for attempt in range(1, OLLAMA_RETRIES + 1):
+        try:
+            response = requests.post(
+                f"{OLLAMA_URL}/api/generate",
+                json=payload,
+                timeout=OLLAMA_TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
+            break
+        except requests.RequestException as exc:
+            last_error = exc
+            if attempt < OLLAMA_RETRIES:
+                time.sleep(0.5)
+
+    if data is None:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error llamando a Ollama tras {OLLAMA_RETRIES} intentos: {last_error}",
+        )
 
     took_ms = int((time.time() - t0) * 1000)
     answer = (data.get("response") or "").strip()
-
-    log_event = {
-        "ts": int(time.time()),
-        "user": req.user,
-        "model": OLLAMA_MODEL,
-        "took_ms": took_ms,
-        "prompt_chars": len(msg),
-    }
-
-    os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
-    with open(LOG_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(log_event, ensure_ascii=False) + "\n")
+    append_log_event(req.user, took_ms, len(msg))
 
     return {"answer": answer, "took_ms": took_ms, "model": OLLAMA_MODEL}
+
+
+@app.post("/chat/stream")
+def chat_stream(req: ChatRequest):
+    t0 = time.time()
+
+    msg = (req.message or "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="message vacío")
+
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": build_prompt(msg),
+        "stream": True,
+        "options": {"num_predict": NUM_PREDICT, "temperature": 0.2},
+    }
+
+    def event_stream() -> Generator[str, None, None]:
+        accumulated = []
+        last_error = None
+
+        for attempt in range(1, OLLAMA_RETRIES + 1):
+            try:
+                with requests.post(
+                    f"{OLLAMA_URL}/api/generate",
+                    json=payload,
+                    stream=True,
+                    timeout=OLLAMA_TIMEOUT,
+                ) as response:
+                    response.raise_for_status()
+                    for raw_line in response.iter_lines(decode_unicode=True):
+                        if not raw_line:
+                            continue
+
+                        chunk = json.loads(raw_line)
+                        token = chunk.get("response") or ""
+                        if token:
+                            accumulated.append(token)
+                            yield f"data: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
+
+                        if chunk.get("done"):
+                            took_ms = int((time.time() - t0) * 1000)
+                            append_log_event(req.user, took_ms, len(msg))
+                            yield (
+                                "data: "
+                                + json.dumps(
+                                    {
+                                        "done": True,
+                                        "model": OLLAMA_MODEL,
+                                        "took_ms": took_ms,
+                                        "answer": "".join(accumulated),
+                                    },
+                                    ensure_ascii=False,
+                                )
+                                + "\n\n"
+                            )
+                            return
+                return
+            except (requests.RequestException, json.JSONDecodeError) as exc:
+                last_error = exc
+                if attempt < OLLAMA_RETRIES:
+                    time.sleep(0.5)
+
+        yield (
+            "data: "
+            + json.dumps(
+                {
+                    "error": f"Error llamando a Ollama tras {OLLAMA_RETRIES} intentos: {last_error}",
+                },
+                ensure_ascii=False,
+            )
+            + "\n\n"
+        )
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")

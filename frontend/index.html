@@ -10,9 +10,10 @@
     .card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; }
     textarea { width:100%; height:90px; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
     button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
-    .row { display:flex; gap:10px; align-items:center; margin-top:10px; }
+    .row { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap: wrap; }
     .out { white-space: pre-wrap; background:#0b1020; border:1px solid #24305e; border-radius:10px; padding:10px; margin-top:10px; min-height:120px; }
     small { color:#9aa6d1; }
+    label { color:#9aa6d1; font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -23,6 +24,7 @@
       <textarea id="msg" placeholder="Ej: Resume en 5 bullets el propósito de este prototipo para junta directiva."></textarea>
       <div class="row">
         <button onclick="send()">Enviar</button>
+        <label><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
         <small id="meta"></small>
       </div>
       <div class="out" id="out"></div>
@@ -30,14 +32,26 @@
   </div>
 
 <script>
-const API_BASE = "http://19.153.10.52:8000"; // demo rápida (sin reverse proxy)
+const API_BASE = "/api";
 document.getElementById("api").innerText = API_BASE;
+
+function appendOutput(text){
+  const out = document.getElementById("out");
+  out.innerText += text;
+}
 
 async function send(){
   const msg = document.getElementById("msg").value.trim();
+  const useStreaming = document.getElementById("streaming").checked;
   if(!msg) return;
-  document.getElementById("meta").innerText = "Consultando...";
+
+  document.getElementById("meta").innerText = useStreaming ? "Consultando (stream)..." : "Consultando...";
   document.getElementById("out").innerText = "";
+
+  if(useStreaming){
+    await sendStreaming(msg);
+    return;
+  }
 
   const r = await fetch(API_BASE + "/chat", {
     method:"POST",
@@ -55,6 +69,61 @@ async function send(){
   const data = JSON.parse(txt);
   document.getElementById("out").innerText = data.answer || "";
   document.getElementById("meta").innerText = `Modelo: ${data.model} • ${data.took_ms}ms`;
+}
+
+async function sendStreaming(msg){
+  const response = await fetch(API_BASE + "/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: msg, user: "board-demo" })
+  });
+
+  if(!response.ok || !response.body){
+    const txt = await response.text();
+    document.getElementById("meta").innerText = "Error: " + response.status;
+    document.getElementById("out").innerText = txt;
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while(true){
+    const { value, done } = await reader.read();
+    if(done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+
+    for(const evt of events){
+      const line = evt.split("\n").find(l => l.startsWith("data: "));
+      if(!line) continue;
+
+      const payload = line.slice(6);
+      let data;
+      try {
+        data = JSON.parse(payload);
+      } catch {
+        continue;
+      }
+
+      if(data.error){
+        document.getElementById("meta").innerText = "Error de streaming";
+        appendOutput(`\n[ERROR] ${data.error}`);
+        return;
+      }
+
+      if(data.token){
+        appendOutput(data.token);
+      }
+
+      if(data.done){
+        document.getElementById("meta").innerText = `Modelo: ${data.model} • ${data.took_ms}ms (stream)`;
+      }
+    }
+  }
 }
 </script>
 </body>
