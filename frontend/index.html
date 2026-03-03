@@ -102,9 +102,6 @@ function processSseEvents(rawEvents){
     }
 
     if(data.done){
-      if(data.answer){
-        outEl.innerText = data.answer;
-      }
       metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
       scrollOutputIfNeeded(true);
       return true;
@@ -180,6 +177,9 @@ async function sendStreaming(msg){
       if(buffer.trim()){
         processSseEvents([buffer]);
       }
+      metaEl.innerText = metaEl.innerText.includes("Respuesta completa")
+        ? metaEl.innerText
+        : "Stream finalizado";
       return;
     }
   }
