@@ -1,0 +1,41 @@
+services:
+  ollama_proto:
+    image: ollama/ollama:latest
+    container_name: ollama_proto
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_proto_data:/root/.ollama
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: itcom-ai-backend
+    environment:
+      - APP_NAME=${APP_NAME}
+      - OLLAMA_URL=${OLLAMA_URL}
+      - OLLAMA_MODEL=${OLLAMA_MODEL}
+      - OLLAMA_KEEP_ALIVE=30m
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_QUEUE=128
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - ollama_proto
+    ports:
+      - "${API_PORT}:8000"
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:alpine
+    container_name: itcom-ai-frontend
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  ollama_proto_data:
