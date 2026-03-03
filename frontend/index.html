@@ -10,9 +10,21 @@
     .card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; }
     textarea { width:100%; height:90px; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
     button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
-    .row { display:flex; gap:10px; align-items:center; margin-top:10px; }
-    .out { white-space: pre-wrap; background:#0b1020; border:1px solid #24305e; border-radius:10px; padding:10px; margin-top:10px; min-height:120px; }
+    .row { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap: wrap; }
+    .out {
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-y: auto;
+      max-height: 45vh;
+      background:#0b1020;
+      border:1px solid #24305e;
+      border-radius:10px;
+      padding:10px;
+      margin-top:10px;
+      min-height:120px;
+    }
     small { color:#9aa6d1; }
+    label { color:#9aa6d1; font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -23,6 +35,7 @@
       <textarea id="msg" placeholder="Ej: Resume en 5 bullets el propósito de este prototipo para junta directiva."></textarea>
       <div class="row">
         <button onclick="send()">Enviar</button>
+        <label><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
         <small id="meta"></small>
       </div>
       <div class="out" id="out"></div>
@@ -30,14 +43,89 @@
   </div>
 
 <script>
-const API_BASE = "http://19.153.10.52:8000"; // demo rápida (sin reverse proxy)
+const API_BASE = "/api";
+const outEl = document.getElementById("out");
+const metaEl = document.getElementById("meta");
+
+let autoScrollEnabled = true;
+outEl.addEventListener("scroll", () => {
+  const nearBottom = outEl.scrollHeight - outEl.scrollTop - outEl.clientHeight < 24;
+  autoScrollEnabled = nearBottom;
+});
+
 document.getElementById("api").innerText = API_BASE;
+
+function scrollOutputIfNeeded(force = false){
+  if(force || autoScrollEnabled){
+    outEl.scrollTop = outEl.scrollHeight;
+  }
+}
+
+function appendOutput(text){
+  outEl.innerText += text;
+  scrollOutputIfNeeded();
+}
+
+function resetOutput(){
+  outEl.innerText = "";
+  autoScrollEnabled = true;
+  scrollOutputIfNeeded(true);
+}
+
+function processSseEvents(rawEvents){
+  for(const evt of rawEvents){
+    if(!evt.trim()) continue;
+
+    const dataLines = evt
+      .split("\n")
+      .filter((line) => line.startsWith("data: "))
+      .map((line) => line.slice(6));
+
+    if(dataLines.length === 0) continue;
+
+    const payload = dataLines.join("\n");
+    let data;
+    try {
+      data = JSON.parse(payload);
+    } catch {
+      continue;
+    }
+
+    if(data.error){
+      metaEl.innerText = "Error de streaming";
+      appendOutput(`\n[ERROR] ${data.error}`);
+      return true;
+    }
+
+    if(data.token){
+      appendOutput(data.token);
+    }
+
+    if(data.done){
+      if(data.answer){
+        outEl.innerText = data.answer;
+      }
+      metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
+      scrollOutputIfNeeded(true);
+      return true;
+    }
+  }
+
+  return false;
+}
 
 async function send(){
   const msg = document.getElementById("msg").value.trim();
+  const useStreaming = document.getElementById("streaming").checked;
   if(!msg) return;
-  document.getElementById("meta").innerText = "Consultando...";
-  document.getElementById("out").innerText = "";
+
+  metaEl.innerText = useStreaming ? "Consultando (stream)..." : "Consultando...";
+  resetOutput();
+
+  if(useStreaming){
+    await sendStreaming(msg);
+    return;
+  }
 
   const r = await fetch(API_BASE + "/chat", {
     method:"POST",
@@ -47,14 +135,54 @@ async function send(){
 
   const txt = await r.text();
   if(!r.ok){
-    document.getElementById("meta").innerText = "Error: " + r.status;
-    document.getElementById("out").innerText = txt;
+    metaEl.innerText = "Error: " + r.status;
+    outEl.innerText = txt;
     return;
   }
 
   const data = JSON.parse(txt);
-  document.getElementById("out").innerText = data.answer || "";
-  document.getElementById("meta").innerText = `Modelo: ${data.model} • ${data.took_ms}ms`;
+  outEl.innerText = data.answer || "";
+  metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
+  scrollOutputIfNeeded(true);
+}
+
+async function sendStreaming(msg){
+  const response = await fetch(API_BASE + "/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: msg, user: "board-demo" })
+  });
+
+  if(!response.ok || !response.body){
+    const txt = await response.text();
+    metaEl.innerText = "Error: " + response.status;
+    outEl.innerText = txt;
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while(true){
+    const { value, done } = await reader.read();
+
+    if(value){
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
+      const shouldStop = processSseEvents(events);
+      if(shouldStop) return;
+    }
+
+    if(done){
+      buffer += decoder.decode();
+      if(buffer.trim()){
+        processSseEvents([buffer]);
+      }
+      return;
+    }
+  }
 }
 </script>
 </body>
