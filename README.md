@@ -58,6 +58,7 @@ Comportamiento:
 - El frontend ahora tiene un checkbox **Streaming SSE** (activo por defecto):
   - Activado: usa `/api/chat/stream` y renderiza tokens en tiempo real.
   - Desactivado: usa `/api/chat` con respuesta JSON completa.
+- El contenedor de respuesta permite scroll (`overflow-y: auto`, `max-height: 45vh`) y muestra el texto completo al finalizar (`Respuesta completa`).
 
 Prueba rápida de streaming con curl:
 
@@ -90,6 +91,7 @@ Resultado esperado:
 - `GET /api/health` devuelve JSON con `status: ok`.
 - `POST /api/chat` devuelve JSON completo con `answer`.
 - `POST /api/chat/stream` imprime eventos SSE incrementales (`data: ...`) y evento final con `done: true`.
+- En UI, al enviar `resume en 5 bullets el propósito de este prototipo`, se muestran los 5 bullets completos en el contenedor de respuesta (con scroll si excede el alto).
 
 ## Troubleshooting
 
