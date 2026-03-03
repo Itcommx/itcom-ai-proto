@@ -124,6 +124,11 @@ async function send(){
     return;
   }
 
+  if(useStreaming){
+    await sendStreaming(msg);
+    return;
+  }
+
   const r = await fetch(API_BASE + "/chat", {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
@@ -181,6 +186,61 @@ async function sendStreaming(msg){
         ? metaEl.innerText
         : "Stream finalizado";
       return;
+    }
+  }
+}
+
+async function sendStreaming(msg){
+  const response = await fetch(API_BASE + "/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: msg, user: "board-demo" })
+  });
+
+  if(!response.ok || !response.body){
+    const txt = await response.text();
+    document.getElementById("meta").innerText = "Error: " + response.status;
+    document.getElementById("out").innerText = txt;
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while(true){
+    const { value, done } = await reader.read();
+    if(done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+
+    for(const evt of events){
+      const line = evt.split("\n").find(l => l.startsWith("data: "));
+      if(!line) continue;
+
+      const payload = line.slice(6);
+      let data;
+      try {
+        data = JSON.parse(payload);
+      } catch {
+        continue;
+      }
+
+      if(data.error){
+        document.getElementById("meta").innerText = "Error de streaming";
+        appendOutput(`\n[ERROR] ${data.error}`);
+        return;
+      }
+
+      if(data.token){
+        appendOutput(data.token);
+      }
+
+      if(data.done){
+        document.getElementById("meta").innerText = `Modelo: ${data.model} • ${data.took_ms}ms (stream)`;
+      }
     }
   }
 }
