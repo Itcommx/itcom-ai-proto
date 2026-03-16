@@ -298,3 +298,10 @@ ITCOM AI será considerado exitoso en esta etapa si:
 - Se resuelven casos de uso de negocio reales
 - La operación técnica tiene monitoreo, logs y rollback
 - El sistema está listo para pasar a piloto controlado
+
+## 9. Avance operativo reciente
+- T-001 completada: estructura base del monorepo y documento `ARCHITECTURE.md` inicial.
+- T-002 completada: FastAPI base y endpoint `/health` operativo en validación local.
+- T-003 completada: configuración centralizada inicial en backend (`backend/app/config.py`) y `.env.example` vigente.
+- T-004 bloqueada en este entorno: falta de binario `docker` para validación obligatoria del compose.
+
