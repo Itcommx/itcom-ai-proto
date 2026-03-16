@@ -138,10 +138,14 @@ function processSseEvents(rawEvents){
     }
 
     if(data.done){
-      if(typeof data.answer === "string" && data.answer.length){
+      if(typeof data.answer === "string"){
         outContentEl.textContent = data.answer;
       }
-      metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
+      const isTruncated = Boolean(data.truncated);
+      const doneReason = data.done_reason ? ` (${data.done_reason})` : "";
+      metaEl.innerText = isTruncated
+        ? `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta truncada${doneReason}`
+        : `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
       scrollOutputIfNeeded(true);
       return true;
     }
@@ -179,6 +183,11 @@ async function send(){
 
   const data = JSON.parse(txt);
   outContentEl.textContent = data.answer || "";
+  const isTruncated = Boolean(data.truncated);
+  const doneReason = data.done_reason ? ` (${data.done_reason})` : "";
+  metaEl.innerText = isTruncated
+    ? `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta truncada${doneReason}`
+    : `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
   metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
   scrollOutputIfNeeded(true);
 }

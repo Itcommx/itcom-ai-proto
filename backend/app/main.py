@@ -8,6 +8,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+APP_NAME = os.getenv("APP_NAME", "ITCOM AI Prototype")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:latest")
+LOG_PATH = os.getenv("LOG_PATH", "/app/logs/requests.jsonl")
+NUM_PREDICT = int(os.getenv("NUM_PREDICT", "1024"))
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+OLLAMA_RETRIES = int(os.getenv("OLLAMA_RETRIES", "2"))
 from .config import settings
 
 app = FastAPI(title=settings.app_name)
@@ -20,6 +27,10 @@ class ChatRequest(BaseModel):
 
 def build_prompt(message: str) -> str:
     return f"Responde en español, claro y breve.\nPregunta: {message}\n"
+
+
+def is_truncated(done_reason: str | None) -> bool:
+    return (done_reason or "").lower() in {"length", "max_tokens"}
 
 
 def append_log_event(user: str | None, took_ms: int, prompt_chars: int):
@@ -87,6 +98,8 @@ def chat(req: ChatRequest):
 
     took_ms = int((time.time() - t0) * 1000)
     answer = (data.get("response") or "").strip()
+    done_reason = data.get("done_reason")
+    truncated = is_truncated(done_reason)
     append_log_event(req.user, took_ms, len(msg))
 
     return {"answer": answer, "took_ms": took_ms, "model": settings.ollama_model}
@@ -109,6 +122,7 @@ def chat_stream(req: ChatRequest):
 
     def event_stream() -> Generator[str, None, None]:
         accumulated = []
+        done_reason = None
         last_error = None
 
         for attempt in range(1, settings.ollama_retries + 1):
@@ -131,6 +145,7 @@ def chat_stream(req: ChatRequest):
                             yield f"data: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
 
                         if chunk.get("done"):
+                            done_reason = chunk.get("done_reason")
                             took_ms = int((time.time() - t0) * 1000)
                             append_log_event(req.user, took_ms, len(msg))
                             yield (
@@ -141,6 +156,8 @@ def chat_stream(req: ChatRequest):
                                         "model": settings.ollama_model,
                                         "took_ms": took_ms,
                                         "answer": "".join(accumulated),
+                                        "truncated": is_truncated(done_reason),
+                                        "done_reason": done_reason,
                                     },
                                     ensure_ascii=False,
                                 )
