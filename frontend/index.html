@@ -15,7 +15,9 @@
     .out {
       white-space: pre-wrap;
       word-break: break-word;
+      overflow-wrap: anywhere;
       overflow-y: auto;
+      height: clamp(180px, 50vh, 420px);
       max-height: 50vh;
       background:#0b1020;
       border:1px solid #24305e;
@@ -117,6 +119,9 @@ function processSseEvents(rawEvents){
     }
 
     if(data.done){
+      if(typeof data.answer === "string" && data.answer.length){
+        outEl.innerText = data.answer;
+      }
       metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
       scrollOutputIfNeeded(true);
       return true;
