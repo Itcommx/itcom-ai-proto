@@ -14,6 +14,12 @@
     .row { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap: wrap; }
     .out {
       height: clamp(180px, 50vh, 420px);
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      overflow-y: auto;
+      height: clamp(180px, 50vh, 420px);
+      max-height: 50vh;
       background:#0b1020;
       border:1px solid #24305e;
       border-radius:10px;
@@ -35,6 +41,9 @@
       white-space: pre-wrap;
       word-break: break-word;
       overflow-wrap: anywhere;
+      min-height:140px;
+      overflow-x:auto;
+      min-width:0;
       line-height:1.4;
     }
     small { color:#9aa6d1; }
@@ -179,6 +188,7 @@ async function send(){
   metaEl.innerText = isTruncated
     ? `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta truncada${doneReason}`
     : `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
+  metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
   scrollOutputIfNeeded(true);
 }
 

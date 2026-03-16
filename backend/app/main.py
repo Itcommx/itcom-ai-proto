@@ -15,8 +15,9 @@ LOG_PATH = os.getenv("LOG_PATH", "/app/logs/requests.jsonl")
 NUM_PREDICT = int(os.getenv("NUM_PREDICT", "1024"))
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 OLLAMA_RETRIES = int(os.getenv("OLLAMA_RETRIES", "2"))
+from .config import settings
 
-app = FastAPI(title=APP_NAME)
+app = FastAPI(title=settings.app_name)
 
 
 class ChatRequest(BaseModel):
@@ -36,13 +37,13 @@ def append_log_event(user: str | None, took_ms: int, prompt_chars: int):
     log_event = {
         "ts": int(time.time()),
         "user": user,
-        "model": OLLAMA_MODEL,
+        "model": settings.ollama_model,
         "took_ms": took_ms,
         "prompt_chars": prompt_chars,
     }
 
-    os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
-    with open(LOG_PATH, "a", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(settings.log_path), exist_ok=True)
+    with open(settings.log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(log_event, ensure_ascii=False) + "\n")
 
 
@@ -50,10 +51,10 @@ def append_log_event(user: str | None, took_ms: int, prompt_chars: int):
 def health():
     return {
         "status": "ok",
-        "app": APP_NAME,
-        "model": OLLAMA_MODEL,
-        "ollama_url": OLLAMA_URL,
-        "num_predict": NUM_PREDICT,
+        "app": settings.app_name,
+        "model": settings.ollama_model,
+        "ollama_url": settings.ollama_url,
+        "num_predict": settings.num_predict,
     }
 
 
@@ -66,33 +67,33 @@ def chat(req: ChatRequest):
         raise HTTPException(status_code=400, detail="message vacío")
 
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": settings.ollama_model,
         "prompt": build_prompt(msg),
         "stream": False,
-        "options": {"num_predict": NUM_PREDICT, "temperature": 0.2},
+        "options": {"num_predict": settings.num_predict, "temperature": 0.2},
     }
 
     last_error = None
     data = None
-    for attempt in range(1, OLLAMA_RETRIES + 1):
+    for attempt in range(1, settings.ollama_retries + 1):
         try:
             response = requests.post(
-                f"{OLLAMA_URL}/api/generate",
+                f"{settings.ollama_url}/api/generate",
                 json=payload,
-                timeout=OLLAMA_TIMEOUT,
+                timeout=settings.ollama_timeout,
             )
             response.raise_for_status()
             data = response.json()
             break
         except requests.RequestException as exc:
             last_error = exc
-            if attempt < OLLAMA_RETRIES:
+            if attempt < settings.ollama_retries:
                 time.sleep(0.5)
 
     if data is None:
         raise HTTPException(
             status_code=502,
-            detail=f"Error llamando a Ollama tras {OLLAMA_RETRIES} intentos: {last_error}",
+            detail=f"Error llamando a Ollama tras {settings.ollama_retries} intentos: {last_error}",
         )
 
     took_ms = int((time.time() - t0) * 1000)
@@ -101,13 +102,7 @@ def chat(req: ChatRequest):
     truncated = is_truncated(done_reason)
     append_log_event(req.user, took_ms, len(msg))
 
-    return {
-        "answer": answer,
-        "took_ms": took_ms,
-        "model": OLLAMA_MODEL,
-        "truncated": truncated,
-        "done_reason": done_reason,
-    }
+    return {"answer": answer, "took_ms": took_ms, "model": settings.ollama_model}
 
 
 @app.post("/chat/stream")
@@ -119,10 +114,10 @@ def chat_stream(req: ChatRequest):
         raise HTTPException(status_code=400, detail="message vacío")
 
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": settings.ollama_model,
         "prompt": build_prompt(msg),
         "stream": True,
-        "options": {"num_predict": NUM_PREDICT, "temperature": 0.2},
+        "options": {"num_predict": settings.num_predict, "temperature": 0.2},
     }
 
     def event_stream() -> Generator[str, None, None]:
@@ -130,13 +125,13 @@ def chat_stream(req: ChatRequest):
         done_reason = None
         last_error = None
 
-        for attempt in range(1, OLLAMA_RETRIES + 1):
+        for attempt in range(1, settings.ollama_retries + 1):
             try:
                 with requests.post(
-                    f"{OLLAMA_URL}/api/generate",
+                    f"{settings.ollama_url}/api/generate",
                     json=payload,
                     stream=True,
-                    timeout=OLLAMA_TIMEOUT,
+                    timeout=settings.ollama_timeout,
                 ) as response:
                     response.raise_for_status()
                     for raw_line in response.iter_lines(decode_unicode=True):
@@ -158,7 +153,7 @@ def chat_stream(req: ChatRequest):
                                 + json.dumps(
                                     {
                                         "done": True,
-                                        "model": OLLAMA_MODEL,
+                                        "model": settings.ollama_model,
                                         "took_ms": took_ms,
                                         "answer": "".join(accumulated),
                                         "truncated": is_truncated(done_reason),
@@ -172,14 +167,14 @@ def chat_stream(req: ChatRequest):
                 return
             except (requests.RequestException, json.JSONDecodeError) as exc:
                 last_error = exc
-                if attempt < OLLAMA_RETRIES:
+                if attempt < settings.ollama_retries:
                     time.sleep(0.5)
 
         yield (
             "data: "
             + json.dumps(
                 {
-                    "error": f"Error llamando a Ollama tras {OLLAMA_RETRIES} intentos: {last_error}",
+                    "error": f"Error llamando a Ollama tras {settings.ollama_retries} intentos: {last_error}",
                 },
                 ensure_ascii=False,
             )
