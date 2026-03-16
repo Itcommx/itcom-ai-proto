@@ -30,12 +30,12 @@
 
 | ID | Título | Dominio | Prioridad | Dependencias | Skill sugerida | Estado | Criterio de aceptación |
 |----|--------|---------|-----------|--------------|----------------|--------|------------------------|
-| T-001 | Crear estructura base del monorepo | ARCH | P0 | Ninguna | architect | TODO | Repo con carpetas base, docs iniciales y estructura consistente |
-| T-002 | Crear FastAPI base con endpoint /health | BACKEND | P0 | T-001 | backend-fastapi | TODO | API levanta localmente y responde health check |
-| T-003 | Crear archivo .env.example y manejo centralizado de configuración | BACKEND | P0 | T-001 | backend-fastapi | TODO | Variables definidas y cargadas desde configuración única |
-| T-004 | Crear Docker Compose base para app + db + redis | DEVOPS | P0 | T-001 | devops-release | TODO | Servicios levantan localmente de forma reproducible |
+| T-001 | Crear estructura base del monorepo | ARCH | P0 | Ninguna | architect | DONE | Repo con carpetas base, docs iniciales y estructura consistente |
+| T-002 | Crear FastAPI base con endpoint /health | BACKEND | P0 | T-001 | backend-fastapi | DONE | API levanta localmente y responde health check |
+| T-003 | Crear archivo .env.example y manejo centralizado de configuración | BACKEND | P0 | T-001 | backend-fastapi | REVIEW | Variables definidas y cargadas desde configuración única |
+| T-004 | Crear Docker Compose base para app + db + redis | DEVOPS | P0 | T-001 | devops-release | BLOCKED | Servicios levantan localmente de forma reproducible |
 | T-005 | Crear Makefile con comandos estándar | DEVOPS | P1 | T-001 | devops-release | TODO | Existen comandos mínimos para setup, test, lint y run |
-| T-006 | Implementar autenticación inicial | BACKEND | P0 | T-002, T-003 | backend-fastapi | TODO | Usuarios pueden autenticarse con flujo básico funcional |
+| T-006 | Implementar autenticación inicial | BACKEND | P0 | T-002, T-003 | backend-fastapi | BLOCKED | Usuarios pueden autenticarse con flujo básico funcional |
 | T-007 | Implementar roles y permisos base | BACKEND | P0 | T-006 | backend-fastapi | TODO | Existen al menos roles admin y user con validación |
 | T-008 | Diseñar modelo de auditoría de acciones e interacciones | BACKEND | P1 | T-002 | backend-fastapi | TODO | Existe modelo y persistencia de eventos auditables |
 | T-009 | Crear esquema inicial de base de datos de aplicación | BACKEND | P0 | T-002 | backend-fastapi | TODO | Modelos principales y migración inicial definidos |
@@ -92,3 +92,10 @@ Estas no siempre aparecen como ticket único, pero deben ejecutarse de forma con
 - Mantener PLANS.md y ARCHITECTURE.md actualizados
 - Sincronizar documentación con comportamiento real
 - Mantener staging readiness
+
+
+## Bloqueos activos
+
+- **T-003 (REVIEW):** migración a `settings` validada por compilación/imports y arranque local de FastAPI; falta validación funcional completa del flujo `/api/chat` con Docker+Ollama disponible para cerrar en DONE.
+- **T-006 (BLOCKED):** requiere definición mínima de estrategia de identidad (sesión/JWT), almacenamiento de usuarios y criterios de seguridad. Forzar implementación ad-hoc en este punto puede comprometer estabilidad y trazabilidad.
+- **T-004 (BLOCKED):** no se puede validar `docker compose up -d --build` en este entorno porque el binario `docker` no está disponible (`command not found`). Se pospone cualquier cambio en `docker-compose.yml` para evitar inestabilidad sin validación reproducible.
