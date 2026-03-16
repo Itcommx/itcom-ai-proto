@@ -13,6 +13,7 @@
     button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
     .row { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap: wrap; }
     .out {
+      height: clamp(180px, 50vh, 420px);
       white-space: pre-wrap;
       word-break: break-word;
       overflow-wrap: anywhere;
@@ -22,8 +23,24 @@
       background:#0b1020;
       border:1px solid #24305e;
       border-radius:10px;
-      padding:10px;
       margin-top:10px;
+      min-width:0;
+      min-height:0;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .out-scroll {
+      flex:1 1 auto;
+      min-height:0;
+      overflow-y:auto;
+      overflow-x:auto;
+      padding:10px;
+    }
+    .out-content {
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: anywhere;
       min-height:140px;
       overflow-x:auto;
       min-width:0;
@@ -44,18 +61,20 @@
         <label><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
         <small id="meta"></small>
       </div>
-      <div class="out" id="out"></div>
+      <div class="out" id="out"><div class="out-scroll" id="outScroll"><pre class="out-content" id="outContent"></pre></div></div>
     </div>
   </div>
 
 <script>
 const API_BASE = "/api";
 const outEl = document.getElementById("out");
+const outScrollEl = document.getElementById("outScroll");
+const outContentEl = document.getElementById("outContent");
 const metaEl = document.getElementById("meta");
 
 let autoScrollEnabled = true;
-outEl.addEventListener("scroll", () => {
-  const nearBottom = outEl.scrollHeight - outEl.scrollTop - outEl.clientHeight < 24;
+outScrollEl.addEventListener("scroll", () => {
+  const nearBottom = outScrollEl.scrollHeight - outScrollEl.scrollTop - outScrollEl.clientHeight < 24;
   autoScrollEnabled = nearBottom;
 });
 
@@ -74,17 +93,17 @@ syncMessageInputHeight();
 
 function scrollOutputIfNeeded(force = false){
   if(force || autoScrollEnabled){
-    outEl.scrollTop = outEl.scrollHeight;
+    outScrollEl.scrollTop = outScrollEl.scrollHeight;
   }
 }
 
 function appendOutput(text){
-  outEl.innerText += text;
+  outContentEl.textContent += text;
   scrollOutputIfNeeded();
 }
 
 function resetOutput(){
-  outEl.innerText = "";
+  outContentEl.textContent = "";
   autoScrollEnabled = true;
   scrollOutputIfNeeded(true);
 }
@@ -120,7 +139,7 @@ function processSseEvents(rawEvents){
 
     if(data.done){
       if(typeof data.answer === "string" && data.answer.length){
-        outEl.innerText = data.answer;
+        outContentEl.textContent = data.answer;
       }
       metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
       scrollOutputIfNeeded(true);
@@ -154,12 +173,12 @@ async function send(){
   const txt = await r.text();
   if(!r.ok){
     metaEl.innerText = "Error: " + r.status;
-    outEl.innerText = txt;
+    outContentEl.textContent = txt;
     return;
   }
 
   const data = JSON.parse(txt);
-  outEl.innerText = data.answer || "";
+  outContentEl.textContent = data.answer || "";
   metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
   scrollOutputIfNeeded(true);
 }
@@ -174,7 +193,7 @@ async function sendStreaming(msg){
   if(!response.ok || !response.body){
     const txt = await response.text();
     metaEl.innerText = "Error: " + response.status;
-    outEl.innerText = txt;
+    outContentEl.textContent = txt;
     return;
   }
 
