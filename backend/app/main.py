@@ -1,10 +1,13 @@
+import base64
+import hashlib
+import hmac
 import json
 import os
 import time
 from collections.abc import Generator
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -25,6 +28,11 @@ class ChatRequest(BaseModel):
     user: str | None = "board-demo"
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 def build_prompt(message: str) -> str:
     return f"Responde en español, claro y breve.\nPregunta: {message}\n"
 
@@ -32,15 +40,16 @@ def build_prompt(message: str) -> str:
 def is_truncated(done_reason: str | None) -> bool:
     return (done_reason or "").lower() in {"length", "max_tokens"}
 
+codex/execute-tasks-from-repo-documentation-zpuuay
 
 def now_ts() -> int:
     return int(time.time())
 
 
 def append_log_event(event: dict):
-    os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(settings.log_path), exist_ok=True)
     event_with_ts = {"timestamp": now_ts(), **event}
-    with open(LOG_PATH, "a", encoding="utf-8") as f:
+    with open(settings.log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(event_with_ts, ensure_ascii=False) + "\n")
 
 
@@ -58,20 +67,6 @@ def log_chat_event(
         {
             "endpoint": endpoint,
             "user": user,
-            "model": OLLAMA_MODEL,
-            "prompt_chars": prompt_chars,
-            "took_ms": took_ms,
-            "answer_length": answer_length,
-            "truncated": truncated,
-            "done_reason": done_reason,
-            "error": error,
-        }
-    ):
-    
-    append_log_event(
-        {
-            "endpoint": endpoint,
-            "user": user,
             "model": settings.ollama_model,
             "prompt_chars": prompt_chars,
             "took_ms": took_ms,
@@ -84,29 +79,88 @@ def log_chat_event(
 
 
 def ollama_error_message(last_error: Exception | None) -> str:
-    return f"Error llamando a Ollama tras {OLLAMA_RETRIES} intentos: {last_error}"
+    return f"Error llamando a Ollama tras {settings.ollama_retries} intentos: {last_error}"
 
 
 def build_generate_payload(message: str, stream: bool) -> dict:
     return {
-        "model": settings.OLLAMA_MODEL,
+        "model": settings.ollama_model,
         "prompt": build_prompt(message),
         "stream": stream,
-        "options": {"num_predict": settings.NUM_PREDICT, "temperature": 0.2},
+        "options": {"num_predict": settings.num_predict, "temperature": 0.2},
     }
 
-def append_log_event(user: str | None, took_ms: int, prompt_chars: int):
-    log_event = {
-        "ts": int(time.time()),
-        "user": user,
-        "model": settings.ollama_model,
-        "took_ms": took_ms,
-        "prompt_chars": prompt_chars,
-    }
 
-    os.makedirs(os.path.dirname(settings.log_path), exist_ok=True)
-    with open(settings.log_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(log_event, ensure_ascii=False) + "\n")
+def sign_payload(payload: str) -> str:
+    return hmac.new(
+        settings.auth_secret.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def issue_token(username: str) -> str:
+    expires_at = now_ts() + settings.auth_token_ttl
+    payload = f"{username}:{expires_at}"
+    signature = sign_payload(payload)
+    raw = f"{payload}:{signature}"
+    return base64.urlsafe_b64encode(raw.encode("utf-8")).decode("utf-8")
+
+
+def parse_token(token: str) -> str:
+    try:
+        raw = base64.urlsafe_b64decode(token.encode("utf-8")).decode("utf-8")
+        username, expires_at, signature = raw.rsplit(":", 2)
+        payload = f"{username}:{expires_at}"
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"Token inválido: {exc}")
+
+    expected = sign_payload(payload)
+    if not hmac.compare_digest(expected, signature):
+        raise HTTPException(status_code=401, detail="Firma de token inválida")
+
+    if now_ts() > int(expires_at):
+        raise HTTPException(status_code=401, detail="Token expirado")
+
+    return username
+
+
+def validate_auth_config():
+    if (
+        not settings.auth_username
+        or not settings.auth_password
+        or not settings.auth_secret
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="Auth no configurada: define AUTH_USERNAME, AUTH_PASSWORD y AUTH_SECRET",
+        )
+
+
+def get_current_user(authorization: str | None = Header(default=None)) -> str:
+    validate_auth_config()
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Falta Authorization Bearer token")
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Bearer token vacío")
+    return parse_token(token)
+
+
+@app.post("/auth/login")
+def login(req: LoginRequest):
+    validate_auth_config()
+    if req.username != settings.auth_username or req.password != settings.auth_password:
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+    token = issue_token(req.username)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": settings.auth_token_ttl,
+        "user": req.username,
+    }
+  main
 
 
 @app.get("/health")
@@ -126,7 +180,7 @@ def health():
 
 
 @app.post("/chat")
-def chat(req: ChatRequest):
+def chat(req: ChatRequest, user: str = Depends(get_current_user)):
     t0 = time.time()
 
     msg = (req.message or "").strip()
@@ -157,53 +211,47 @@ def chat(req: ChatRequest):
         error_msg = ollama_error_message(last_error)
         log_chat_event(
             endpoint="/chat",
-            user=req.user,
+            user=user,
             prompt_chars=len(msg),
             took_ms=took_ms,
             answer_length=0,
             truncated=False,
             done_reason=None,
             error=error_msg,
-        raise HTTPException(
-            status_code=502,
-            detail=f"Error llamando a Ollama tras {settings.ollama_retries} intentos: {last_error}",
-        )
+          
+    codex/execute-tasks-from-repo-documentation-zpuuay
+                )
         raise HTTPException(status_code=502, detail=error_msg)
 
-took_ms = int((time.time() - t0) * 1000)
-answer = (data.get("response") or "").strip()
-done_reason = data.get("done_reason")
-truncated = is_truncated(done_reason)
-
-log_chat_event(
-    endpoint="/chat",
-    user=req.user,
-    prompt_chars=len(msg),
-    took_ms=took_ms,
-    answer_length=len(answer),
-    truncated=truncated,
-    done_reason=done_reason,
-    error=None,
-)
-
-return {
-    "answer": answer,
-    "took_ms": took_ms,
-    "model": settings.ollama_model,
-    "truncated": truncated,
-    "done_reason": done_reason,
-}
-    }
+    took_ms = int((time.time() - t0) * 1000)
     answer = (data.get("response") or "").strip()
     done_reason = data.get("done_reason")
     truncated = is_truncated(done_reason)
-    append_log_event(req.user, took_ms, len(msg))
 
-    return {"answer": answer, "took_ms": took_ms, "model": settings.ollama_model}
+    log_chat_event(
+        endpoint="/chat",
+        user=user,
+        prompt_chars=len(msg),
+        took_ms=took_ms,
+        answer_length=len(answer),
+        truncated=truncated,
+        done_reason=done_reason,
+        error=None,
+    )
+
+    return {
+        "answer": answer,
+        "took_ms": took_ms,
+        "model": settings.ollama_model,
+        "truncated": truncated,
+        "done_reason": done_reason,
+        "user": user,
+    }
+ main
 
 
 @app.post("/chat/stream")
-def chat_stream(req: ChatRequest):
+def chat_stream(req: ChatRequest, user: str = Depends(get_current_user)):
     t0 = time.time()
 
     msg = (req.message or "").strip()
@@ -243,7 +291,7 @@ def chat_stream(req: ChatRequest):
                             truncated = is_truncated(done_reason)
                             log_chat_event(
                                 endpoint="/chat/stream",
-                                user=req.user,
+                                user=user,
                                 prompt_chars=len(msg),
                                 took_ms=took_ms,
                                 answer_length=len(answer),
@@ -261,6 +309,7 @@ def chat_stream(req: ChatRequest):
                                         "answer": answer,
                                         "truncated": truncated,
                                         "done_reason": done_reason,
+                                        "user": user,
                                     },
                                     ensure_ascii=False,
                                 )
@@ -277,7 +326,7 @@ def chat_stream(req: ChatRequest):
         error_msg = ollama_error_message(last_error)
         log_chat_event(
             endpoint="/chat/stream",
-            user=req.user,
+            user=user,
             prompt_chars=len(msg),
             took_ms=took_ms,
             answer_length=len("".join(accumulated)),
