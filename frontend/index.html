@@ -7,72 +7,108 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 0; background:#0b1020; color:#e7eaf3; }
     * { box-sizing: border-box; }
-    .wrap { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .page { min-height: 100vh; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
+    .page.logged-out { display: flex; align-items: center; justify-content: center; }
+    .page.logged-out .wrap { width: 100%; max-width: 520px; }
+
     .card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; display:flex; flex-direction:column; min-height:0; gap:10px; }
     input, textarea { width:100%; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
     textarea { min-height:90px; max-height:220px; resize:vertical; overflow-y:auto; line-height:1.4; }
     button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
+    button.secondary { background:#24305e; }
+    button.ghost { background:transparent; border:1px solid #3952a3; }
+
     .row { display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap; }
-    .out {
-      height: clamp(180px, 50vh, 420px);
-      max-height: 50vh;
-      background:#0b1020;
-      border:1px solid #24305e;
-      border-radius:10px;
-      min-width:0;
-      min-height:0;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-    }
-    .out-scroll {
-      flex:1 1 auto;
-      min-height:0;
-      overflow-y:auto;
-      overflow-x:auto;
-      padding:10px;
-    }
-    .out-content {
-      white-space: pre-wrap;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-      min-height:140px;
-      min-width:0;
-      line-height:1.4;
-    }
+    .between { justify-content: space-between; }
+
+    .out { height: clamp(180px, 50vh, 420px); max-height: 50vh; background:#0b1020; border:1px solid #24305e; border-radius:10px; min-width:0; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+    .out-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:auto; padding:10px; }
+    .out-content { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; min-height:140px; min-width:0; line-height:1.4; }
+
     small { color:#9aa6d1; }
     label { color:#9aa6d1; font-size: 0.9rem; }
-    .hidden { display:none; }
-    .auth-error { color:#ff9c9c; }
+    .hidden { display:none !important; }
+    .error { color:#ff9c9c; }
+    .success { color:#95f0af; }
+    .auth-card-title { margin: 0; }
+
+    .user-menu-shell { position: relative; }
+    .user-menu-btn { background:#24305e; }
+    .user-menu { position:absolute; right:0; top:calc(100% + 8px); min-width:220px; background:#0f1730; border:1px solid #24305e; border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:8px; z-index:10; }
+    .user-menu .username { color:#c6d3ff; font-weight:700; }
+
+    .panel { margin-top: 8px; background:#0f1730; border:1px solid #24305e; border-radius:10px; padding:12px; }
+
+    @media (max-width: 768px) {
+      .wrap { padding: 14px; }
+      .page.logged-out .wrap { max-width: 100%; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h2>ITCOM AI Prototype</h2>
+  <div id="page" class="page logged-out">
+    <div class="wrap">
+      <h2>ITCOM AI Prototype</h2>
 
-    <div class="card" id="authCard">
-      <small>Backend: <span id="api"></span></small>
-      <input id="username" placeholder="Usuario" />
-      <input id="password" type="password" placeholder="Contraseña" />
-      <div class="row">
-        <button type="button" onclick="login()">Iniciar sesión</button>
+      <div class="card" id="authCard">
+        <small>Backend: <span id="api"></span></small>
+        <h3 class="auth-card-title">Iniciar sesión</h3>
+        <input id="username" placeholder="Usuario" />
+        <input id="password" type="password" placeholder="Contraseña" />
+        <div class="row">
+          <button type="button" onclick="login()">Iniciar sesión</button>
+          <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
+        </div>
         <small id="authMeta"></small>
-      </div>
-      <small id="authError" class="auth-error"></small>
-    </div>
+        <small id="authError" class="error"></small>
 
-    <div class="card hidden" id="chatCard">
-      <div class="row">
-        <small>Sesión: <span id="sessionUser"></span></small>
-        <button type="button" onclick="logout()">Cerrar sesión</button>
+        <div id="signupPanel" class="panel hidden">
+          <h4 style="margin:0">Crear cuenta</h4>
+          <input id="signupUsername" placeholder="Nuevo usuario" />
+          <input id="signupPassword" type="password" placeholder="Contraseña" />
+          <input id="signupConfirmPassword" type="password" placeholder="Confirmar contraseña" />
+          <div class="row">
+            <button type="button" onclick="signup()">Registrar</button>
+            <button type="button" class="ghost" onclick="toggleSignup(false)">Cancelar</button>
+          </div>
+          <small id="signupFeedback"></small>
+        </div>
       </div>
-      <textarea id="msg" placeholder="Ej: Resume en 5 bullets el propósito de este prototipo para junta directiva."></textarea>
-      <div class="row">
-        <button type="button" onclick="sendMessage()">Enviar</button>
-        <label><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
-        <small id="meta"></small>
+
+      <div class="card hidden" id="chatCard">
+        <div class="row between">
+          <small>Sesión activa</small>
+          <div class="user-menu-shell">
+            <button type="button" class="user-menu-btn" onclick="toggleUserMenu()">☰ Usuario</button>
+            <div id="userMenu" class="user-menu hidden">
+              <small class="username" id="sessionUser"></small>
+              <button type="button" class="secondary" onclick="toggleChangePassword(true)">Cambiar contraseña</button>
+              <button type="button" class="ghost" onclick="logout()">Cerrar sesión</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="changePasswordPanel" class="panel hidden">
+          <h4 style="margin:0">Cambiar contraseña</h4>
+          <input id="currentPassword" type="password" placeholder="Contraseña actual" />
+          <input id="newPassword" type="password" placeholder="Nueva contraseña" />
+          <input id="confirmNewPassword" type="password" placeholder="Confirmar nueva contraseña" />
+          <div class="row">
+            <button type="button" onclick="changePassword()">Guardar</button>
+            <button type="button" class="ghost" onclick="toggleChangePassword(false)">Cancelar</button>
+          </div>
+          <small id="changePasswordFeedback"></small>
+        </div>
+
+        <textarea id="msg" placeholder="Ej: Resume en 5 bullets el propósito de este prototipo para junta directiva."></textarea>
+        <div class="row">
+          <button type="button" onclick="sendMessage()">Enviar</button>
+          <label><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
+          <small id="meta"></small>
+        </div>
+        <div class="out"><div class="out-scroll" id="outScroll"><pre class="out-content" id="outContent"></pre></div></div>
       </div>
-      <div class="out" id="out"><div class="out-scroll" id="outScroll"><pre class="out-content" id="outContent"></pre></div></div>
     </div>
   </div>
 
@@ -83,11 +119,18 @@ const USER_KEY = "itcom_auth_user";
 
 document.getElementById("api").innerText = API_BASE;
 
+const pageEl = document.getElementById("page");
 const authCardEl = document.getElementById("authCard");
 const chatCardEl = document.getElementById("chatCard");
 const authErrorEl = document.getElementById("authError");
 const authMetaEl = document.getElementById("authMeta");
 const sessionUserEl = document.getElementById("sessionUser");
+
+const signupPanelEl = document.getElementById("signupPanel");
+const signupFeedbackEl = document.getElementById("signupFeedback");
+const userMenuEl = document.getElementById("userMenu");
+const changePasswordPanelEl = document.getElementById("changePasswordPanel");
+const changePasswordFeedbackEl = document.getElementById("changePasswordFeedback");
 
 const outScrollEl = document.getElementById("outScroll");
 const outContentEl = document.getElementById("outContent");
@@ -99,6 +142,16 @@ outScrollEl.addEventListener("scroll", () => {
   const nearBottom = outScrollEl.scrollHeight - outScrollEl.scrollTop - outScrollEl.clientHeight < 24;
   autoScrollEnabled = nearBottom;
 });
+
+document.addEventListener("click", (event) => {
+  const inMenuShell = event.target.closest(".user-menu-shell");
+  if (!inMenuShell) userMenuEl.classList.add("hidden");
+});
+
+function setFeedback(el, text, isError = false) {
+  el.className = isError ? "error" : "success";
+  el.innerText = text;
+}
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY) || "";
@@ -118,7 +171,9 @@ function renderAuthState() {
 
   authCardEl.classList.toggle("hidden", loggedIn);
   chatCardEl.classList.toggle("hidden", !loggedIn);
-  sessionUserEl.innerText = user;
+  pageEl.classList.toggle("logged-out", !loggedIn);
+  pageEl.classList.toggle("logged-in", loggedIn);
+  sessionUserEl.innerText = user ? `Usuario: ${user}` : "";
   authMetaEl.innerText = loggedIn ? `Autenticado como ${user}` : "";
 
   if (loggedIn) syncMessageInputHeight();
@@ -137,9 +192,7 @@ msgEl.addEventListener("input", syncMessageInputHeight);
 syncMessageInputHeight();
 
 function scrollOutputIfNeeded(force = false) {
-  if (force || autoScrollEnabled) {
-    outScrollEl.scrollTop = outScrollEl.scrollHeight;
-  }
+  if (force || autoScrollEnabled) outScrollEl.scrollTop = outScrollEl.scrollHeight;
 }
 
 function appendOutput(text) {
@@ -172,10 +225,9 @@ function processSseEvents(rawEvents) {
 
     if (dataLines.length === 0) continue;
 
-    const payload = dataLines.join("\n");
     let data;
     try {
-      data = JSON.parse(payload);
+      data = JSON.parse(dataLines.join("\n"));
     } catch {
       continue;
     }
@@ -215,9 +267,8 @@ async function sendStreaming(msg) {
   }
 
   if (!response.ok || !response.body) {
-    const txt = await response.text();
+    outContentEl.textContent = await response.text();
     metaEl.innerText = "Error: " + response.status;
-    outContentEl.textContent = txt;
     return;
   }
 
@@ -250,13 +301,64 @@ async function sendStreaming(msg) {
   }
 }
 
+window.toggleSignup = function (show) {
+  signupPanelEl.classList.toggle("hidden", !show);
+  if (!show) signupFeedbackEl.innerText = "";
+};
+
+window.toggleUserMenu = function () {
+  userMenuEl.classList.toggle("hidden");
+};
+
+window.toggleChangePassword = function (show) {
+  changePasswordPanelEl.classList.toggle("hidden", !show);
+  if (!show) changePasswordFeedbackEl.innerText = "";
+  userMenuEl.classList.add("hidden");
+};
+
+window.signup = async function () {
+  const username = document.getElementById("signupUsername").value.trim();
+  const password = document.getElementById("signupPassword").value;
+  const confirmPassword = document.getElementById("signupConfirmPassword").value;
+
+  if (!username || !password || !confirmPassword) {
+    setFeedback(signupFeedbackEl, "Todos los campos son obligatorios", true);
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    setFeedback(signupFeedbackEl, "Password y confirmación no coinciden", true);
+    return;
+  }
+
+  try {
+    const response = await fetch(API_BASE + "/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setFeedback(signupFeedbackEl, `Error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    setFeedback(signupFeedbackEl, "Cuenta creada. Ya puedes iniciar sesión.");
+    document.getElementById("username").value = username;
+  } catch (err) {
+    setFeedback(signupFeedbackEl, `No se pudo registrar: ${err}`, true);
+  }
+};
+
 window.login = async function () {
   authErrorEl.innerText = "";
   authMetaEl.innerText = "Autenticando...";
 
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
-
   if (!username || !password) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = "Usuario y contraseña son requeridos";
@@ -264,28 +366,22 @@ window.login = async function () {
   }
 
   try {
-    const r = await fetch(API_BASE + "/auth/login", {
+    const response = await fetch(API_BASE + "/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password })
     });
 
-    const txt = await r.text();
-    if (!r.ok) {
-      const detail = (() => {
-        try {
-          const parsed = JSON.parse(txt);
-          return parsed.detail || txt;
-        } catch {
-          return txt;
-        }
-      })();
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
       authMetaEl.innerText = "";
-      authErrorEl.innerText = `Login error (${r.status}): ${detail}`;
+      authErrorEl.innerText = `Login error (${response.status}): ${detail}`;
       return;
     }
 
-    const data = JSON.parse(txt);
+    const data = JSON.parse(bodyText);
     const token = data.access_token || data.token;
     if (!token) {
       authMetaEl.innerText = "";
@@ -307,17 +403,56 @@ window.login = async function () {
 window.logout = function () {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  authErrorEl.innerText = "";
   authMetaEl.innerText = "";
+  authErrorEl.innerText = "";
   metaEl.innerText = "Sesión cerrada";
+  userMenuEl.classList.add("hidden");
+  changePasswordPanelEl.classList.add("hidden");
   renderAuthState();
+};
+
+window.changePassword = async function () {
+  const currentPassword = document.getElementById("currentPassword").value;
+  const newPassword = document.getElementById("newPassword").value;
+  const confirmNewPassword = document.getElementById("confirmNewPassword").value;
+
+  if (!currentPassword || !newPassword || !confirmNewPassword) {
+    setFeedback(changePasswordFeedbackEl, "Todos los campos son obligatorios", true);
+    return;
+  }
+
+  if (newPassword !== confirmNewPassword) {
+    setFeedback(changePasswordFeedbackEl, "Nueva contraseña y confirmación no coinciden", true);
+    return;
+  }
+
+  try {
+    const response = await fetch(API_BASE + "/auth/change-password", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setFeedback(changePasswordFeedbackEl, `Error (${response.status}): ${detail}`, true);
+      if (response.status === 401) metaEl.innerText = "No autorizado";
+      return;
+    }
+
+    setFeedback(changePasswordFeedbackEl, "Contraseña actualizada correctamente");
+  } catch (err) {
+    setFeedback(changePasswordFeedbackEl, `No se pudo cambiar contraseña: ${err}`, true);
+  }
 };
 
 window.sendMessage = async function () {
   const msg = msgEl.value.trim();
-  const useStreaming = document.getElementById("streaming").checked;
   if (!msg) return;
 
+  const useStreaming = document.getElementById("streaming").checked;
   metaEl.innerText = useStreaming ? "Consultando (stream)..." : "Consultando...";
   resetOutput();
 
@@ -326,21 +461,21 @@ window.sendMessage = async function () {
     return;
   }
 
-  const r = await fetch(API_BASE + "/chat", {
+  const response = await fetch(API_BASE + "/chat", {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ message: msg, user: localStorage.getItem(USER_KEY) || "board-demo" })
   });
 
-  const txt = await r.text();
-  if (r.status === 401) {
+  const txt = await response.text();
+  if (response.status === 401) {
     metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
     window.logout();
     return;
   }
 
-  if (!r.ok) {
-    metaEl.innerText = "Error: " + r.status;
+  if (!response.ok) {
+    metaEl.innerText = "Error: " + response.status;
     outContentEl.textContent = txt;
     return;
   }
