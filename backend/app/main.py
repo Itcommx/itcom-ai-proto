@@ -15,8 +15,9 @@ LOG_PATH = os.getenv("LOG_PATH", "/app/logs/requests.jsonl")
 NUM_PREDICT = int(os.getenv("NUM_PREDICT", "1024"))
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 OLLAMA_RETRIES = int(os.getenv("OLLAMA_RETRIES", "2"))
+from .config import settings
 
-app = FastAPI(title=APP_NAME)
+app = FastAPI(title=settings.app_name)
 
 
 class ChatRequest(BaseModel):
@@ -65,6 +66,20 @@ def log_chat_event(
             "done_reason": done_reason,
             "error": error,
         }
+    ):
+    
+    append_log_event(
+        {
+            "endpoint": endpoint,
+            "user": user,
+            "model": settings.ollama_model,
+            "prompt_chars": prompt_chars,
+            "took_ms": took_ms,
+            "answer_length": answer_length,
+            "truncated": truncated,
+            "done_reason": done_reason,
+            "error": error,
+        }
     )
 
 
@@ -74,24 +89,38 @@ def ollama_error_message(last_error: Exception | None) -> str:
 
 def build_generate_payload(message: str, stream: bool) -> dict:
     return {
-        "model": OLLAMA_MODEL,
+        "model": settings.OLLAMA_MODEL,
         "prompt": build_prompt(message),
         "stream": stream,
-        "options": {"num_predict": NUM_PREDICT, "temperature": 0.2},
+        "options": {"num_predict": settings.NUM_PREDICT, "temperature": 0.2},
     }
+
+def append_log_event(user: str | None, took_ms: int, prompt_chars: int):
+    log_event = {
+        "ts": int(time.time()),
+        "user": user,
+        "model": settings.ollama_model,
+        "took_ms": took_ms,
+        "prompt_chars": prompt_chars,
+    }
+
+    os.makedirs(os.path.dirname(settings.log_path), exist_ok=True)
+    with open(settings.log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(log_event, ensure_ascii=False) + "\n")
 
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "app": APP_NAME,
-        "app_name": APP_NAME,
-        "model": OLLAMA_MODEL,
-        "num_predict": NUM_PREDICT,
-        "ollama_timeout": OLLAMA_TIMEOUT,
-        "ollama_retries": OLLAMA_RETRIES,
-        "log_path": LOG_PATH,
+        "app": settings.app_name,
+        "app_name": settings.app_name,
+        "model": settings.ollama_model,
+        "ollama_url": settings.ollama_url,
+        "num_predict": settings.num_predict,
+        "ollama_timeout": settings.ollama_timeout,
+        "ollama_retries": settings.ollama_retries,
+        "log_path": settings.log_path,
         "timestamp": now_ts(),
     }
 
@@ -108,19 +137,19 @@ def chat(req: ChatRequest):
 
     last_error = None
     data = None
-    for attempt in range(1, OLLAMA_RETRIES + 1):
+    for attempt in range(1, settings.ollama_retries + 1):
         try:
             response = requests.post(
-                f"{OLLAMA_URL}/api/generate",
+                f"{settings.ollama_url}/api/generate",
                 json=payload,
-                timeout=OLLAMA_TIMEOUT,
+                timeout=settings.ollama_timeout,
             )
             response.raise_for_status()
             data = response.json()
             break
         except (requests.RequestException, json.JSONDecodeError) as exc:
             last_error = exc
-            if attempt < OLLAMA_RETRIES:
+            if attempt < settings.ollama_retries:
                 time.sleep(0.5)
 
     if data is None:
@@ -135,32 +164,42 @@ def chat(req: ChatRequest):
             truncated=False,
             done_reason=None,
             error=error_msg,
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error llamando a Ollama tras {settings.ollama_retries} intentos: {last_error}",
         )
         raise HTTPException(status_code=502, detail=error_msg)
 
-    took_ms = int((time.time() - t0) * 1000)
-    answer = data.get("response") or ""
+took_ms = int((time.time() - t0) * 1000)
+answer = (data.get("response") or "").strip()
+done_reason = data.get("done_reason")
+truncated = is_truncated(done_reason)
+
+log_chat_event(
+    endpoint="/chat",
+    user=req.user,
+    prompt_chars=len(msg),
+    took_ms=took_ms,
+    answer_length=len(answer),
+    truncated=truncated,
+    done_reason=done_reason,
+    error=None,
+)
+
+return {
+    "answer": answer,
+    "took_ms": took_ms,
+    "model": settings.ollama_model,
+    "truncated": truncated,
+    "done_reason": done_reason,
+}
+    }
+    answer = (data.get("response") or "").strip()
     done_reason = data.get("done_reason")
     truncated = is_truncated(done_reason)
+    append_log_event(req.user, took_ms, len(msg))
 
-    log_chat_event(
-        endpoint="/chat",
-        user=req.user,
-        prompt_chars=len(msg),
-        took_ms=took_ms,
-        answer_length=len(answer),
-        truncated=truncated,
-        done_reason=done_reason,
-        error=None,
-    )
-
-    return {
-        "answer": answer,
-        "took_ms": took_ms,
-        "model": OLLAMA_MODEL,
-        "truncated": truncated,
-        "done_reason": done_reason,
-    }
+    return {"answer": answer, "took_ms": took_ms, "model": settings.ollama_model}
 
 
 @app.post("/chat/stream")
@@ -178,13 +217,13 @@ def chat_stream(req: ChatRequest):
         done_reason = None
         last_error = None
 
-        for attempt in range(1, OLLAMA_RETRIES + 1):
+        for attempt in range(1, settings.ollama_retries + 1):
             try:
                 with requests.post(
-                    f"{OLLAMA_URL}/api/generate",
+                    f"{settings.ollama_url}/api/generate",
                     json=payload,
                     stream=True,
-                    timeout=OLLAMA_TIMEOUT,
+                    timeout=settings.ollama_timeout,
                 ) as response:
                     response.raise_for_status()
                     for raw_line in response.iter_lines(decode_unicode=True):
@@ -217,7 +256,7 @@ def chat_stream(req: ChatRequest):
                                 + json.dumps(
                                     {
                                         "done": True,
-                                        "model": OLLAMA_MODEL,
+                                        "model": settings.ollama_model,
                                         "took_ms": took_ms,
                                         "answer": answer,
                                         "truncated": truncated,
@@ -231,7 +270,7 @@ def chat_stream(req: ChatRequest):
                 return
             except (requests.RequestException, json.JSONDecodeError) as exc:
                 last_error = exc
-                if attempt < OLLAMA_RETRIES:
+                if attempt < settings.ollama_retries:
                     time.sleep(0.5)
 
         took_ms = int((time.time() - t0) * 1000)
