@@ -5,20 +5,47 @@ import json
 import os
 import time
 from collections.abc import Generator
+from dataclasses import dataclass
 
 import requests
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-APP_NAME = os.getenv("APP_NAME", "ITCOM AI Prototype")
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:latest")
-LOG_PATH = os.getenv("LOG_PATH", "/app/logs/requests.jsonl")
-NUM_PREDICT = int(os.getenv("NUM_PREDICT", "1024"))
-OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
-OLLAMA_RETRIES = int(os.getenv("OLLAMA_RETRIES", "2"))
-from .config import settings
+
+@dataclass(frozen=True)
+class Settings:
+    app_name: str
+    ollama_url: str
+    ollama_model: str
+    log_path: str
+    num_predict: int
+    ollama_timeout: int
+    ollama_retries: int
+    auth_username: str
+    auth_password: str
+    auth_secret: str
+    auth_token_ttl: int
+
+
+def build_settings() -> Settings:
+    env = os.environ
+    return Settings(
+        app_name=env.get("APP_NAME", "ITCOM AI Prototype"),
+        ollama_url=env.get("OLLAMA_URL", "http://localhost:11434"),
+        ollama_model=env.get("OLLAMA_MODEL", "llama3:latest"),
+        log_path=env.get("LOG_PATH", "/app/logs/requests.jsonl"),
+        num_predict=int(env.get("NUM_PREDICT", "1024")),
+        ollama_timeout=int(env.get("OLLAMA_TIMEOUT", "120")),
+        ollama_retries=int(env.get("OLLAMA_RETRIES", "2")),
+        auth_username=env.get("AUTH_USERNAME", ""),
+        auth_password=env.get("AUTH_PASSWORD", ""),
+        auth_secret=env.get("AUTH_SECRET", ""),
+        auth_token_ttl=int(env.get("AUTH_TOKEN_TTL", "3600")),
+    )
+
+
+settings = build_settings()
 
 app = FastAPI(title=settings.app_name)
 
@@ -39,8 +66,6 @@ def build_prompt(message: str) -> str:
 
 def is_truncated(done_reason: str | None) -> bool:
     return (done_reason or "").lower() in {"length", "max_tokens"}
-
-codex/execute-tasks-from-repo-documentation-zpuuay
 
 def now_ts() -> int:
     return int(time.time())
@@ -160,7 +185,6 @@ def login(req: LoginRequest):
         "expires_in": settings.auth_token_ttl,
         "user": req.username,
     }
-  main
 
 
 @app.get("/health")
@@ -218,9 +242,7 @@ def chat(req: ChatRequest, user: str = Depends(get_current_user)):
             truncated=False,
             done_reason=None,
             error=error_msg,
-          
-    codex/execute-tasks-from-repo-documentation-zpuuay
-                )
+        )
         raise HTTPException(status_code=502, detail=error_msg)
 
     took_ms = int((time.time() - t0) * 1000)
@@ -238,7 +260,6 @@ def chat(req: ChatRequest, user: str = Depends(get_current_user)):
         done_reason=done_reason,
         error=None,
     )
-
     return {
         "answer": answer,
         "took_ms": took_ms,
@@ -247,8 +268,6 @@ def chat(req: ChatRequest, user: str = Depends(get_current_user)):
         "done_reason": done_reason,
         "user": user,
     }
- main
-
 
 @app.post("/chat/stream")
 def chat_stream(req: ChatRequest, user: str = Depends(get_current_user)):

@@ -148,33 +148,55 @@ async function login(){
     return;
   }
 
-  const r = await fetch(API_BASE + "/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password })
-  });
+    try {
+    const r = await fetch(API_BASE + "/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
 
-  const txt = await r.text();
-  if(!r.ok){
+    const txt = await r.text();
+    if (!r.ok) {
+      const detail = (() => {
+        try {
+          const parsed = JSON.parse(txt);
+          return parsed.detail || txt;
+        } catch {
+          return txt;
+        }
+      })();
+      authMetaEl.innerText = "";
+      authErrorEl.innerText = `Login error (${r.status}): ${detail}`;
+      return;
+    }
+
+    const data = JSON.parse(txt);
+    if (!data.access_token) {
+      authMetaEl.innerText = "";
+      authErrorEl.innerText = "Login inválido: respuesta sin token";
+      return;
+    }
+
+    localStorage.setItem(TOKEN_KEY, data.access_token);
+    localStorage.setItem(USER_KEY, data.user || username);
     authMetaEl.innerText = "";
-    authErrorEl.innerText = `Login error (${r.status}): ${txt}`;
-    return;
+    renderAuthState();
+  } catch (err) {
+    authMetaEl.innerText = "";
+    authErrorEl.innerText = `No se pudo conectar al backend: ${err}`;
   }
-
-  const data = JSON.parse(txt);
-  localStorage.setItem(TOKEN_KEY, data.access_token);
-  localStorage.setItem(USER_KEY, data.user || username);
-  authMetaEl.innerText = "";
-  renderAuthState();
 }
 
-function syncMessageInputHeight(){
+const msgEl = document.getElementById("msg");
+
+function syncMessageInputHeight() {
   msgEl.style.height = "auto";
   const maxHeight = 220;
   const nextHeight = Math.min(msgEl.scrollHeight, maxHeight);
   msgEl.style.height = `${nextHeight}px`;
   msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
 }
+
 msgEl.addEventListener("input", syncMessageInputHeight);
 syncMessageInputHeight();
 
