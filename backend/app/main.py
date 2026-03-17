@@ -244,6 +244,7 @@ def startup_seed_users():
 
 
 @app.post("/auth/signup")
+@app.post("/api/auth/signup")
 def signup(req: SignupRequest):
     validate_auth_config()
     username = require_non_empty(req.username, "username")
@@ -263,6 +264,7 @@ def signup(req: SignupRequest):
 
 
 @app.post("/auth/login")
+@app.post("/api/auth/login")
 def login(req: LoginRequest):
     validate_auth_config()
     username = require_non_empty(req.username, "username")
@@ -281,6 +283,7 @@ def login(req: LoginRequest):
 
 
 @app.post("/auth/change-password")
+@app.post("/api/auth/change-password")
 def change_password(req: ChangePasswordRequest, user: str = Depends(get_current_user)):
     validate_auth_config()
     current_password = require_non_empty(req.current_password, "current_password")
