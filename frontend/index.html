@@ -8,45 +8,38 @@
     body { font-family: Arial, sans-serif; margin: 0; background:#0b1020; color:#e7eaf3; }
     * { box-sizing: border-box; }
     .wrap { max-width: 900px; margin: 0 auto; padding: 20px; }
-.card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; display:flex; flex-direction:column; min-height:0; gap:10px; }
-
-input, textarea { width:100%; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
-
-textarea { min-height:90px; max-height:220px; resize:vertical; overflow-y:auto; line-height:1.4; }
-
-button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
-
-.row { display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap; }
-
-.out {
-  height: clamp(180px, 50vh, 420px);
-  max-height: 50vh;
-  background:#0b1020;
-  border:1px solid #24305e;
-  border-radius:10px;
-  min-width:0;
-  min-height:0;
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-}
-
-.out-scroll {
-  flex:1 1 auto;
-  min-height:0;
-  overflow-y:auto;
-  overflow-x:auto;
-  padding:10px;
-}
-
-.out-content {
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  min-height:140px;
-  min-width:0;
-  line-height:1.4;
-}
+    .card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; display:flex; flex-direction:column; min-height:0; gap:10px; }
+    input, textarea { width:100%; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
+    textarea { min-height:90px; max-height:220px; resize:vertical; overflow-y:auto; line-height:1.4; }
+    button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
+    .row { display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+    .out {
+      height: clamp(180px, 50vh, 420px);
+      max-height: 50vh;
+      background:#0b1020;
+      border:1px solid #24305e;
+      border-radius:10px;
+      min-width:0;
+      min-height:0;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .out-scroll {
+      flex:1 1 auto;
+      min-height:0;
+      overflow-y:auto;
+      overflow-x:auto;
+      padding:10px;
+    }
+    .out-content {
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      min-height:140px;
+      min-width:0;
+      line-height:1.4;
+    }
     small { color:#9aa6d1; }
     label { color:#9aa6d1; font-size: 0.9rem; }
     .hidden { display:none; }
@@ -75,7 +68,7 @@ button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; co
       </div>
       <textarea id="msg" placeholder="Ej: Resume en 5 bullets el propósito de este prototipo para junta directiva."></textarea>
       <div class="row">
-        <button type="button" onclick="send()">Enviar</button>
+        <button type="button" onclick="sendMessage()">Enviar</button>
         <label><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
         <small id="meta"></small>
       </div>
@@ -107,41 +100,164 @@ outScrollEl.addEventListener("scroll", () => {
   autoScrollEnabled = nearBottom;
 });
 
-function getToken(){
+function getToken() {
   return localStorage.getItem(TOKEN_KEY) || "";
 }
 
-function authHeaders(extra = {}){
+function authHeaders(extra = {}) {
   const token = getToken();
   const headers = { ...extra };
-  if(token) headers.Authorization = `Bearer ${token}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
 
-function renderAuthState(){
+function renderAuthState() {
   const token = getToken();
   const user = localStorage.getItem(USER_KEY) || "";
   const loggedIn = Boolean(token && user);
+
   authCardEl.classList.toggle("hidden", loggedIn);
   chatCardEl.classList.toggle("hidden", !loggedIn);
   sessionUserEl.innerText = user;
   authMetaEl.innerText = loggedIn ? `Autenticado como ${user}` : "";
+
+  if (loggedIn) syncMessageInputHeight();
 }
 
-function logout(){
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  authErrorEl.innerText = "";
-  metaEl.innerText = "Sesión cerrada";
-  renderAuthState();
+function syncMessageInputHeight() {
+  if (!msgEl) return;
+  msgEl.style.height = "auto";
+  const maxHeight = 220;
+  const nextHeight = Math.min(msgEl.scrollHeight, maxHeight);
+  msgEl.style.height = `${nextHeight}px`;
+  msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
 }
 
-async function login(){
+msgEl.addEventListener("input", syncMessageInputHeight);
+syncMessageInputHeight();
+
+function scrollOutputIfNeeded(force = false) {
+  if (force || autoScrollEnabled) {
+    outScrollEl.scrollTop = outScrollEl.scrollHeight;
+  }
+}
+
+function appendOutput(text) {
+  outContentEl.textContent += text;
+  scrollOutputIfNeeded();
+}
+
+function resetOutput() {
+  outContentEl.textContent = "";
+  autoScrollEnabled = true;
+  scrollOutputIfNeeded(true);
+}
+
+function applyDoneMeta(data) {
+  const isTruncated = Boolean(data.truncated);
+  const doneReason = data.done_reason ? ` (${data.done_reason})` : "";
+  metaEl.innerText = isTruncated
+    ? `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta truncada${doneReason}`
+    : `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
+}
+
+function processSseEvents(rawEvents) {
+  for (const evt of rawEvents) {
+    if (!evt.trim()) continue;
+
+    const dataLines = evt
+      .split("\n")
+      .filter((line) => line.startsWith("data: "))
+      .map((line) => line.slice(6));
+
+    if (dataLines.length === 0) continue;
+
+    const payload = dataLines.join("\n");
+    let data;
+    try {
+      data = JSON.parse(payload);
+    } catch {
+      continue;
+    }
+
+    if (data.error) {
+      metaEl.innerText = "Error de streaming";
+      appendOutput(`\n[ERROR] ${data.error}`);
+      return true;
+    }
+
+    if (data.token) {
+      appendOutput(data.token);
+    }
+
+    if (data.done) {
+      if (typeof data.answer === "string") outContentEl.textContent = data.answer;
+      applyDoneMeta(data);
+      scrollOutputIfNeeded(true);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function sendStreaming(msg) {
+  const response = await fetch(API_BASE + "/chat/stream", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ message: msg, user: localStorage.getItem(USER_KEY) || "board-demo" })
+  });
+
+  if (response.status === 401) {
+    metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
+    window.logout();
+    return;
+  }
+
+  if (!response.ok || !response.body) {
+    const txt = await response.text();
+    metaEl.innerText = "Error: " + response.status;
+    outContentEl.textContent = txt;
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+
+    if (value) {
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
+      const shouldStop = processSseEvents(events);
+      if (shouldStop) return;
+    }
+
+    if (done) {
+      buffer += decoder.decode();
+      if (buffer.trim()) {
+        const shouldStop = processSseEvents([buffer]);
+        if (shouldStop) return;
+      }
+      metaEl.innerText = (metaEl.innerText.includes("Respuesta completa") || metaEl.innerText.includes("Respuesta truncada"))
+        ? metaEl.innerText
+        : "Stream finalizado";
+      return;
+    }
+  }
+}
+
+window.login = async function () {
   authErrorEl.innerText = "";
   authMetaEl.innerText = "Autenticando...";
+
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
-  if(!username || !password){
+
+  if (!username || !password) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = "Usuario y contraseña son requeridos";
     return;
@@ -170,139 +286,60 @@ async function login(){
     }
 
     const data = JSON.parse(txt);
-    if (!data.access_token) {
+    const token = data.access_token || data.token;
+    if (!token) {
       authMetaEl.innerText = "";
       authErrorEl.innerText = "Login inválido: respuesta sin token";
       return;
     }
 
-    localStorage.setItem(TOKEN_KEY, data.access_token);
+    localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, data.user || username);
     authMetaEl.innerText = "";
+    metaEl.innerText = "Autenticado";
     renderAuthState();
   } catch (err) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = `No se pudo conectar al backend: ${err}`;
   }
-}
+};
 
-function syncMessageInputHeight(){
-  if(!msgEl) return;
-const msgEl = document.getElementById("msg");
+window.logout = function () {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  authErrorEl.innerText = "";
+  authMetaEl.innerText = "";
+  metaEl.innerText = "Sesión cerrada";
+  renderAuthState();
+};
 
-function syncMessageInputHeight() {
-  msgEl.style.height = "auto";
-  const maxHeight = 220;
-  const nextHeight = Math.min(msgEl.scrollHeight, maxHeight);
-  msgEl.style.height = `${nextHeight}px`;
-  msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
-}
-
-msgEl.addEventListener("input", syncMessageInputHeight);
-syncMessageInputHeight();
-
-const msgEl = document.getElementById("msg");
-function syncMessageInputHeight(){
-  msgEl.style.height = "auto";
-  const maxHeight = 220;
-  const nextHeight = Math.min(msgEl.scrollHeight, maxHeight);
-  msgEl.style.height = `${nextHeight}px`;
-  msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
-}
-msgEl.addEventListener("input", syncMessageInputHeight);
-syncMessageInputHeight();
-
-function scrollOutputIfNeeded(force = false){
-  if(force || autoScrollEnabled){
-    outScrollEl.scrollTop = outScrollEl.scrollHeight;
-  }
-}
-
-function appendOutput(text){
-  outContentEl.textContent += text;
-  scrollOutputIfNeeded();
-}
-
-function resetOutput(){
-  outContentEl.textContent = "";
-  autoScrollEnabled = true;
-  scrollOutputIfNeeded(true);
-}
-
-function applyDoneMeta(data){
-  const isTruncated = Boolean(data.truncated);
-  const doneReason = data.done_reason ? ` (${data.done_reason})` : "";
-  metaEl.innerText = isTruncated
-    ? `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta truncada${doneReason}`
-    : `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
-}
-
-function processSseEvents(rawEvents){
-  for(const evt of rawEvents){
-    if(!evt.trim()) continue;
-
-    const dataLines = evt
-      .split("\n")
-      .filter((line) => line.startsWith("data: "))
-      .map((line) => line.slice(6));
-
-    if(dataLines.length === 0) continue;
-
-    const payload = dataLines.join("\n");
-    let data;
-    try {
-      data = JSON.parse(payload);
-    } catch {
-      continue;
-    }
-
-    if(data.error){
-      metaEl.innerText = "Error de streaming";
-      appendOutput(`\n[ERROR] ${data.error}`);
-      return true;
-    }
-
-    if(data.token){
-      appendOutput(data.token);
-    }
-
-    if(data.done){
-      if(typeof data.answer === "string") outContentEl.textContent = data.answer;
-      applyDoneMeta(data);
-      scrollOutputIfNeeded(true);
-      return true;
-    }
-  }
-
-  return false;
-}
-
-async function send(){
+window.sendMessage = async function () {
   const msg = msgEl.value.trim();
   const useStreaming = document.getElementById("streaming").checked;
-  if(!msg) return;
+  if (!msg) return;
 
   metaEl.innerText = useStreaming ? "Consultando (stream)..." : "Consultando...";
   resetOutput();
 
-  if(useStreaming){
+  if (useStreaming) {
     await sendStreaming(msg);
     return;
   }
 
   const r = await fetch(API_BASE + "/chat", {
-    method:"POST",
-    headers: authHeaders({ "Content-Type":"application/json" }),
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ message: msg, user: localStorage.getItem(USER_KEY) || "board-demo" })
   });
 
   const txt = await r.text();
-  if(r.status === 401){
+  if (r.status === 401) {
     metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
-    logout();
+    window.logout();
     return;
   }
-  if(!r.ok){
+
+  if (!r.ok) {
     metaEl.innerText = "Error: " + r.status;
     outContentEl.textContent = txt;
     return;
@@ -312,56 +349,7 @@ async function send(){
   outContentEl.textContent = data.answer || "";
   applyDoneMeta(data);
   scrollOutputIfNeeded(true);
-}
-
-async function sendStreaming(msg){
-  const response = await fetch(API_BASE + "/chat/stream", {
-    method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ message: msg, user: localStorage.getItem(USER_KEY) || "board-demo" })
-  });
-
-  if(response.status === 401){
-    metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
-    logout();
-    return;
-  }
-
-  if(!response.ok || !response.body){
-    const txt = await response.text();
-    metaEl.innerText = "Error: " + response.status;
-    outContentEl.textContent = txt;
-    return;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while(true){
-    const { value, done } = await reader.read();
-
-    if(value){
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split("\n\n");
-      buffer = events.pop() || "";
-      const shouldStop = processSseEvents(events);
-      if(shouldStop) return;
-    }
-
-    if(done){
-      buffer += decoder.decode();
-      if(buffer.trim()){
-        const shouldStop = processSseEvents([buffer]);
-        if(shouldStop) return;
-      }
-      metaEl.innerText = (metaEl.innerText.includes("Respuesta completa") || metaEl.innerText.includes("Respuesta truncada"))
-        ? metaEl.innerText
-        : "Stream finalizado";
-      return;
-    }
-  }
-}
+};
 
 renderAuthState();
 </script>
