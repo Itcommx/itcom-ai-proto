@@ -246,30 +246,6 @@ def chat(req: ChatRequest, user: str = Depends(get_current_user)):
         raise HTTPException(status_code=502, detail=error_msg)
 
     took_ms = int((time.time() - t0) * 1000)
-answer = (data.get("response") or "").strip()
-done_reason = data.get("done_reason")
-truncated = is_truncated(done_reason)
-
-log_chat_event(
-    endpoint="/chat",
-    user=user,
-    prompt_chars=len(msg),
-    took_ms=took_ms,
-    answer_length=len(answer),
-    truncated=truncated,
-    done_reason=done_reason,
-    error=None,
-)
-
-return {
-    "answer": answer,
-    "took_ms": took_ms,
-    "model": settings.ollama_model,
-    "truncated": truncated,
-    "done_reason": done_reason,
-    "user": user,
-}
-    }
     answer = (data.get("response") or "").strip()
     done_reason = data.get("done_reason")
     truncated = is_truncated(done_reason)
