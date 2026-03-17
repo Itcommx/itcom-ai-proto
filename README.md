@@ -127,3 +127,22 @@ Luego prueba health y chat:
 curl -s http://localhost:8000/health
 curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -d '{"message":"hola"}'
 ```
+
+
+## Auth endpoints (UI login/signup/cambio de contraseña)
+
+El backend ahora expone endpoints de autenticación para la UX del frontend:
+
+- `POST /auth/signup`
+  - payload: `{ "username": "nuevo", "password": "secreto123" }`
+  - respuesta exitosa: `{ "status": "ok", "message": "Cuenta creada", "user": "nuevo" }`
+- `POST /auth/login`
+  - payload: `{ "username": "admin", "password": "change_me" }`
+  - respuesta: `{ "access_token": "...", "token_type": "bearer", "expires_in": 3600, "user": "admin" }`
+- `POST /auth/change-password` (requiere `Authorization: Bearer <token>`)
+  - payload: `{ "current_password": "old", "new_password": "new12345" }`
+  - respuesta: `{ "status": "ok", "message": "Contraseña actualizada", "user": "..." }`
+
+Persistencia demo de usuarios:
+- Se usa `AUTH_USERS_PATH` (default `/app/logs/users.json`).
+- En startup se asegura el usuario inicial definido por `AUTH_USERNAME`/`AUTH_PASSWORD`.
