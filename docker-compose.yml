@@ -26,6 +26,11 @@ services:
       - OLLAMA_MAX_QUEUE=128
       - NUM_PREDICT=${NUM_PREDICT:-80}
       - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-120}
+      - OLLAMA_RETRIES=${OLLAMA_RETRIES:-2}
+      - AUTH_USERNAME=${AUTH_USERNAME}
+      - AUTH_PASSWORD=${AUTH_PASSWORD}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTH_TOKEN_TTL=${AUTH_TOKEN_TTL:-3600}
     volumes:
       - ./logs:/app/logs
     depends_on:

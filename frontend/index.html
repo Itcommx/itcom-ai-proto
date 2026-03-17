@@ -6,70 +6,188 @@
   <title>ITCOM AI Prototype</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; background:#0b1020; color:#e7eaf3; }
+    * { box-sizing: border-box; }
     .wrap { max-width: 900px; margin: 0 auto; padding: 20px; }
-    .card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; }
-    textarea { width:100%; height:90px; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
+    .card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; display:flex; flex-direction:column; min-height:0; gap:10px; }
+    input, textarea { width:100%; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
+    textarea { min-height:90px; max-height:220px; resize:vertical; overflow-y:auto; line-height:1.4; }
     button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
-    .row { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap: wrap; }
-    .out {
-      white-space: pre-wrap;
-      word-break: break-word;
-      overflow-y: auto;
-      max-height: 45vh;
-      background:#0b1020;
-      border:1px solid #24305e;
-      border-radius:10px;
-      padding:10px;
-      margin-top:10px;
-      min-height:120px;
-    }
+    .row { display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap: wrap; }
+    .out { height: clamp(180px, 50vh, 420px); background:#0b1020; border:1px solid #24305e; border-radius:10px; min-width:0; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+    .out-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:auto; padding:10px; }
+    .out-content { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height:1.4; }
     small { color:#9aa6d1; }
     label { color:#9aa6d1; font-size: 0.9rem; }
+    .hidden { display:none; }
+    .auth-error { color:#ff9c9c; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h2>ITCOM AI Prototype</h2>
-    <div class="card">
+
+    <div class="card" id="authCard">
       <small>Backend: <span id="api"></span></small>
+      <input id="username" placeholder="Usuario" />
+      <input id="password" type="password" placeholder="Contraseña" />
+      <div class="row">
+        <button onclick="login()">Iniciar sesión</button>
+        <small id="authMeta"></small>
+      </div>
+      <small id="authError" class="auth-error"></small>
+    </div>
+
+    <div class="card hidden" id="chatCard">
+      <div class="row">
+        <small>Sesión: <span id="sessionUser"></span></small>
+        <button onclick="logout()">Cerrar sesión</button>
+      </div>
       <textarea id="msg" placeholder="Ej: Resume en 5 bullets el propósito de este prototipo para junta directiva."></textarea>
       <div class="row">
         <button onclick="send()">Enviar</button>
         <label><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
         <small id="meta"></small>
       </div>
-      <div class="out" id="out"></div>
+      <div class="out" id="out"><div class="out-scroll" id="outScroll"><pre class="out-content" id="outContent"></pre></div></div>
     </div>
   </div>
 
 <script>
 const API_BASE = "/api";
-const outEl = document.getElementById("out");
-const metaEl = document.getElementById("meta");
-
-let autoScrollEnabled = true;
-outEl.addEventListener("scroll", () => {
-  const nearBottom = outEl.scrollHeight - outEl.scrollTop - outEl.clientHeight < 24;
-  autoScrollEnabled = nearBottom;
-});
+const TOKEN_KEY = "itcom_auth_token";
+const USER_KEY = "itcom_auth_user";
 
 document.getElementById("api").innerText = API_BASE;
 
+const authCardEl = document.getElementById("authCard");
+const chatCardEl = document.getElementById("chatCard");
+const authErrorEl = document.getElementById("authError");
+const authMetaEl = document.getElementById("authMeta");
+const sessionUserEl = document.getElementById("sessionUser");
+
+const outScrollEl = document.getElementById("outScroll");
+const outContentEl = document.getElementById("outContent");
+const metaEl = document.getElementById("meta");
+const msgEl = document.getElementById("msg");
+
+let autoScrollEnabled = true;
+outScrollEl.addEventListener("scroll", () => {
+  const nearBottom = outScrollEl.scrollHeight - outScrollEl.scrollTop - outScrollEl.clientHeight < 24;
+  autoScrollEnabled = nearBottom;
+});
+
+function getToken(){
+  return localStorage.getItem(TOKEN_KEY) || "";
+}
+
+function authHeaders(extra = {}){
+  const token = getToken();
+  const headers = { ...extra };
+  if(token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+function renderAuthState(){
+  const token = getToken();
+  const user = localStorage.getItem(USER_KEY) || "";
+  const loggedIn = Boolean(token && user);
+  authCardEl.classList.toggle("hidden", loggedIn);
+  chatCardEl.classList.toggle("hidden", !loggedIn);
+  sessionUserEl.innerText = user;
+  authMetaEl.innerText = loggedIn ? `Autenticado como ${user}` : "";
+}
+
+function logout(){
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  authErrorEl.innerText = "";
+  metaEl.innerText = "Sesión cerrada";
+  renderAuthState();
+}
+
+async function login(){
+  authErrorEl.innerText = "";
+  authMetaEl.innerText = "Autenticando...";
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  if(!username || !password){
+    authMetaEl.innerText = "";
+    authErrorEl.innerText = "Usuario y contraseña son requeridos";
+    return;
+  }
+
+  try {
+    const r = await fetch(API_BASE + "/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+
+    const txt = await r.text();
+    if(!r.ok){
+      const detail = (() => {
+        try {
+          const parsed = JSON.parse(txt);
+          return parsed.detail || txt;
+        } catch {
+          return txt;
+        }
+      })();
+      authMetaEl.innerText = "";
+      authErrorEl.innerText = `Login error (${r.status}): ${detail}`;
+      return;
+    }
+
+    const data = JSON.parse(txt);
+    if(!data.access_token){
+      authMetaEl.innerText = "";
+      authErrorEl.innerText = "Login inválido: respuesta sin token";
+      return;
+    }
+
+    localStorage.setItem(TOKEN_KEY, data.access_token);
+    localStorage.setItem(USER_KEY, data.user || username);
+    authMetaEl.innerText = "";
+    renderAuthState();
+  } catch (err) {
+    authMetaEl.innerText = "";
+    authErrorEl.innerText = `No se pudo conectar al backend: ${err}`;
+  }
+}
+
+function syncMessageInputHeight(){
+  msgEl.style.height = "auto";
+  const maxHeight = 220;
+  const nextHeight = Math.min(msgEl.scrollHeight, maxHeight);
+  msgEl.style.height = `${nextHeight}px`;
+  msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+msgEl.addEventListener("input", syncMessageInputHeight);
+syncMessageInputHeight();
+
 function scrollOutputIfNeeded(force = false){
   if(force || autoScrollEnabled){
-    outEl.scrollTop = outEl.scrollHeight;
+    outScrollEl.scrollTop = outScrollEl.scrollHeight;
   }
 }
 
 function appendOutput(text){
-  outEl.innerText += text;
+  outContentEl.textContent += text;
   scrollOutputIfNeeded();
 }
 
 function resetOutput(){
-  outEl.innerText = "";
+  outContentEl.textContent = "";
   autoScrollEnabled = true;
   scrollOutputIfNeeded(true);
+}
+
+function applyDoneMeta(data){
+  const isTruncated = Boolean(data.truncated);
+  const doneReason = data.done_reason ? ` (${data.done_reason})` : "";
+  metaEl.innerText = isTruncated
+    ? `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta truncada${doneReason}`
+    : `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
 }
 
 function processSseEvents(rawEvents){
@@ -102,7 +220,8 @@ function processSseEvents(rawEvents){
     }
 
     if(data.done){
-      metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
+      if(typeof data.answer === "string") outContentEl.textContent = data.answer;
+      applyDoneMeta(data);
       scrollOutputIfNeeded(true);
       return true;
     }
@@ -112,7 +231,7 @@ function processSseEvents(rawEvents){
 }
 
 async function send(){
-  const msg = document.getElementById("msg").value.trim();
+  const msg = msgEl.value.trim();
   const useStreaming = document.getElementById("streaming").checked;
   if(!msg) return;
 
@@ -124,37 +243,47 @@ async function send(){
     return;
   }
 
-
   const r = await fetch(API_BASE + "/chat", {
     method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ message: msg, user: "board-demo" })
+    headers: authHeaders({ "Content-Type":"application/json" }),
+    body: JSON.stringify({ message: msg, user: localStorage.getItem(USER_KEY) || "board-demo" })
   });
 
   const txt = await r.text();
+  if(r.status === 401){
+    metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
+    logout();
+    return;
+  }
   if(!r.ok){
     metaEl.innerText = "Error: " + r.status;
-    outEl.innerText = txt;
+    outContentEl.textContent = txt;
     return;
   }
 
   const data = JSON.parse(txt);
-  outEl.innerText = data.answer || "";
-  metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
+  outContentEl.textContent = data.answer || "";
+  applyDoneMeta(data);
   scrollOutputIfNeeded(true);
 }
 
 async function sendStreaming(msg){
   const response = await fetch(API_BASE + "/chat/stream", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: msg, user: "board-demo" })
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ message: msg, user: localStorage.getItem(USER_KEY) || "board-demo" })
   });
+
+  if(response.status === 401){
+    metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
+    logout();
+    return;
+  }
 
   if(!response.ok || !response.body){
     const txt = await response.text();
     metaEl.innerText = "Error: " + response.status;
-    outEl.innerText = txt;
+    outContentEl.textContent = txt;
     return;
   }
 
@@ -176,9 +305,10 @@ async function sendStreaming(msg){
     if(done){
       buffer += decoder.decode();
       if(buffer.trim()){
-        processSseEvents([buffer]);
+        const shouldStop = processSseEvents([buffer]);
+        if(shouldStop) return;
       }
-      metaEl.innerText = metaEl.innerText.includes("Respuesta completa")
+      metaEl.innerText = (metaEl.innerText.includes("Respuesta completa") || metaEl.innerText.includes("Respuesta truncada"))
         ? metaEl.innerText
         : "Stream finalizado";
       return;
@@ -186,6 +316,7 @@ async function sendStreaming(msg){
   }
 }
 
+renderAuthState();
 </script>
 </body>
 </html>
