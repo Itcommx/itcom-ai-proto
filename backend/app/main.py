@@ -67,7 +67,6 @@ def build_prompt(message: str) -> str:
 def is_truncated(done_reason: str | None) -> bool:
     return (done_reason or "").lower() in {"length", "max_tokens"}
 
-
 def now_ts() -> int:
     return int(time.time())
 
@@ -152,7 +151,11 @@ def parse_token(token: str) -> str:
 
 
 def validate_auth_config():
-    if not settings.auth_username or not settings.auth_password or not settings.auth_secret:
+    if (
+        not settings.auth_username
+        or not settings.auth_password
+        or not settings.auth_secret
+    ):
         raise HTTPException(
             status_code=503,
             detail="Auth no configurada: define AUTH_USERNAME, AUTH_PASSWORD y AUTH_SECRET",
@@ -191,6 +194,7 @@ def health():
         "app": settings.app_name,
         "app_name": settings.app_name,
         "model": settings.ollama_model,
+        "ollama_url": settings.ollama_url,
         "num_predict": settings.num_predict,
         "ollama_timeout": settings.ollama_timeout,
         "ollama_retries": settings.ollama_retries,
@@ -242,7 +246,7 @@ def chat(req: ChatRequest, user: str = Depends(get_current_user)):
         raise HTTPException(status_code=502, detail=error_msg)
 
     took_ms = int((time.time() - t0) * 1000)
-    answer = data.get("response") or ""
+    answer = (data.get("response") or "").strip()
     done_reason = data.get("done_reason")
     truncated = is_truncated(done_reason)
 
@@ -256,7 +260,6 @@ def chat(req: ChatRequest, user: str = Depends(get_current_user)):
         done_reason=done_reason,
         error=None,
     )
-
     return {
         "answer": answer,
         "took_ms": took_ms,
@@ -265,7 +268,6 @@ def chat(req: ChatRequest, user: str = Depends(get_current_user)):
         "done_reason": done_reason,
         "user": user,
     }
-
 
 @app.post("/chat/stream")
 def chat_stream(req: ChatRequest, user: str = Depends(get_current_user)):

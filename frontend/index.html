@@ -8,14 +8,45 @@
     body { font-family: Arial, sans-serif; margin: 0; background:#0b1020; color:#e7eaf3; }
     * { box-sizing: border-box; }
     .wrap { max-width: 900px; margin: 0 auto; padding: 20px; }
-    .card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; display:flex; flex-direction:column; min-height:0; gap:10px; }
-    input, textarea { width:100%; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
-    textarea { min-height:90px; max-height:220px; resize:vertical; overflow-y:auto; line-height:1.4; }
-    button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
-    .row { display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap: wrap; }
-    .out { height: clamp(180px, 50vh, 420px); background:#0b1020; border:1px solid #24305e; border-radius:10px; min-width:0; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
-    .out-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:auto; padding:10px; }
-    .out-content { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height:1.4; }
+.card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; display:flex; flex-direction:column; min-height:0; gap:10px; }
+
+input, textarea { width:100%; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
+
+textarea { min-height:90px; max-height:220px; resize:vertical; overflow-y:auto; line-height:1.4; }
+
+button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
+
+.row { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+
+.out {
+  height: clamp(180px, 50vh, 420px);
+  max-height: 50vh;
+  background:#0b1020;
+  border:1px solid #24305e;
+  border-radius:10px;
+  min-width:0;
+  min-height:0;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+
+.out-scroll {
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:auto;
+  padding:10px;
+}
+
+.out-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-height:140px;
+  min-width:0;
+  line-height:1.4;
+}
     small { color:#9aa6d1; }
     label { color:#9aa6d1; font-size: 0.9rem; }
     .hidden { display:none; }
@@ -65,6 +96,7 @@ const authErrorEl = document.getElementById("authError");
 const authMetaEl = document.getElementById("authMeta");
 const sessionUserEl = document.getElementById("sessionUser");
 
+const outEl = document.getElementById("out");
 const outScrollEl = document.getElementById("outScroll");
 const outContentEl = document.getElementById("outContent");
 const metaEl = document.getElementById("meta");
@@ -116,7 +148,7 @@ async function login(){
     return;
   }
 
-  try {
+    try {
     const r = await fetch(API_BASE + "/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -124,7 +156,7 @@ async function login(){
     });
 
     const txt = await r.text();
-    if(!r.ok){
+    if (!r.ok) {
       const detail = (() => {
         try {
           const parsed = JSON.parse(txt);
@@ -139,7 +171,7 @@ async function login(){
     }
 
     const data = JSON.parse(txt);
-    if(!data.access_token){
+    if (!data.access_token) {
       authMetaEl.innerText = "";
       authErrorEl.innerText = "Login inválido: respuesta sin token";
       return;
@@ -155,6 +187,20 @@ async function login(){
   }
 }
 
+const msgEl = document.getElementById("msg");
+
+function syncMessageInputHeight() {
+  msgEl.style.height = "auto";
+  const maxHeight = 220;
+  const nextHeight = Math.min(msgEl.scrollHeight, maxHeight);
+  msgEl.style.height = `${nextHeight}px`;
+  msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+
+msgEl.addEventListener("input", syncMessageInputHeight);
+syncMessageInputHeight();
+
+const msgEl = document.getElementById("msg");
 function syncMessageInputHeight(){
   msgEl.style.height = "auto";
   const maxHeight = 220;
