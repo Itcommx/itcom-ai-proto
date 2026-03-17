@@ -5,81 +5,256 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ITCOM AI Prototype</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background:#0b1020; color:#e7eaf3; }
+    :root {
+      --bg: #0b1020;
+      --panel: #121a33;
+      --panel-alt: #0f1730;
+      --border: #24305e;
+      --text: #e7eaf3;
+      --muted: #9aa6d1;
+      --accent: #4c7dff;
+      --danger: #ff9c9c;
+      --success: #95f0af;
+      --user-bubble: #24305e;
+      --assistant-bubble: #172343;
+    }
+
     * { box-sizing: border-box; }
-    .wrap { max-width: 900px; margin: 0 auto; padding: 20px; }
-.card { background:#121a33; border:1px solid #24305e; border-radius:12px; padding:16px; display:flex; flex-direction:column; min-height:0; gap:10px; }
+    body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+    .hidden { display: none !important; }
 
-input, textarea { width:100%; border-radius:10px; border:1px solid #24305e; padding:10px; background:#0b1020; color:#e7eaf3; }
+    .page { min-height: 100vh; }
+    .auth-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .auth-card { width: 100%; max-width: 520px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
 
-textarea { min-height:90px; max-height:220px; resize:vertical; overflow-y:auto; line-height:1.4; }
+    .app-shell {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 12px;
+      padding: 12px;
+    }
 
-button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
+    .sidebar {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
 
-.row { display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+    .main {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
 
-.out {
-  height: clamp(180px, 50vh, 420px);
-  max-height: 50vh;
-  background:#0b1020;
-  border:1px solid #24305e;
-  border-radius:10px;
-  min-width:0;
-  min-height:0;
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-}
+    .sidebar-header, .sidebar-user { padding: 12px; border-bottom: 1px solid var(--border); }
+    .sidebar-user { border-top: 1px solid var(--border); border-bottom: 0; margin-top: auto; background: var(--panel-alt); }
 
-.out-scroll {
-  flex:1 1 auto;
-  min-height:0;
-  overflow-y:auto;
-  overflow-x:auto;
-  padding:10px;
-}
+    .chat-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .chat-item {
+      border: 1px solid var(--border);
+      background: var(--panel-alt);
+      border-radius: 10px;
+      padding: 8px;
+      cursor: pointer;
+      text-align: left;
+      color: var(--text);
+      width: 100%;
+    }
+    .chat-item.active { border-color: var(--accent); background: #1a2952; }
+    .chat-item-title { font-size: 0.9rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-item-date { color: var(--muted); font-size: 0.75rem; }
+    .chat-item-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .chat-item-actions { display: flex; gap: 4px; }
+    .chat-action {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 7px;
+      padding: 2px 6px;
+      font-size: 0.72rem;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+    .chat-action:hover { color: var(--text); border-color: var(--accent); }
 
-.out-content {
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  min-height:140px;
-  min-width:0;
-  line-height:1.4;
-}
-    small { color:#9aa6d1; }
-    label { color:#9aa6d1; font-size: 0.9rem; }
-    .hidden { display:none; }
-    .auth-error { color:#ff9c9c; }
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .message {
+      max-width: min(78%, 860px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      line-height: 1.45;
+    }
+    .message.user { align-self: flex-end; background: var(--user-bubble); }
+    .message.assistant { align-self: flex-start; background: var(--assistant-bubble); }
+
+    .composer {
+      border-top: 1px solid var(--border);
+      padding: 12px;
+      background: var(--panel-alt);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .composer-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .composer-actions { display: flex; gap: 8px; }
+
+    .status-badge {
+      font-size: 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 8px;
+      color: var(--muted);
+      background: rgba(23, 35, 67, 0.7);
+    }
+
+    textarea, input {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 10px;
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+    }
+    textarea { min-height: 56px; max-height: 220px; resize: none; overflow-y: hidden; }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+    }
+    button.secondary { background: #24305e; }
+    button.ghost { background: transparent; border: 1px solid #3952a3; }
+    button.danger { background: #8b2f46; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .between { justify-content: space-between; }
+    .muted { color: var(--muted); }
+    .error { color: var(--danger); }
+    .success { color: var(--success); }
+
+    .panel { margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #111b37; }
+
+    @media (max-width: 980px) {
+      .app-shell { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+      .sidebar { min-height: 280px; }
+      .main { min-height: calc(100vh - 330px); }
+      .message { max-width: 92%; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h2>ITCOM AI Prototype</h2>
+  <div id="page" class="page">
+    <div id="authShell" class="auth-shell">
+      <div class="auth-card">
+        <h2 style="margin:0;">ITCOM AI Prototype</h2>
+        <small class="muted">Backend: <span id="api"></span></small>
+        <input id="username" placeholder="Usuario" />
+        <input id="password" type="password" placeholder="Contraseña" />
+        <div class="row">
+          <button type="button" onclick="login()">Iniciar sesión</button>
+          <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
+        </div>
+        <small id="authMeta" class="muted"></small>
+        <small id="authError" class="error"></small>
 
-    <div class="card" id="authCard">
-      <small>Backend: <span id="api"></span></small>
-      <input id="username" placeholder="Usuario" />
-      <input id="password" type="password" placeholder="Contraseña" />
-      <div class="row">
-        <button type="button" onclick="login()">Iniciar sesión</button>
-        <small id="authMeta"></small>
+        <div id="signupPanel" class="panel hidden">
+          <h4 style="margin:0 0 8px 0;">Crear cuenta</h4>
+          <input id="signupUsername" placeholder="Nuevo usuario" />
+          <input id="signupPassword" type="password" placeholder="Contraseña" />
+          <input id="signupConfirmPassword" type="password" placeholder="Confirmar contraseña" />
+          <div class="row">
+            <button type="button" onclick="signup()">Registrar</button>
+            <button type="button" class="ghost" onclick="toggleSignup(false)">Cancelar</button>
+          </div>
+          <small id="signupFeedback"></small>
+        </div>
       </div>
-      <small id="authError" class="auth-error"></small>
     </div>
 
-    <div class="card hidden" id="chatCard">
-      <div class="row">
-        <small>Sesión: <span id="sessionUser"></span></small>
-        <button type="button" onclick="logout()">Cerrar sesión</button>
-      </div>
-      <textarea id="msg" placeholder="Ej: Resume en 5 bullets el propósito de este prototipo para junta directiva."></textarea>
-      <div class="row">
-        <button type="button" onclick="send()">Enviar</button>
-        <label><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
-        <small id="meta"></small>
-      </div>
-      <div class="out" id="out"><div class="out-scroll" id="outScroll"><pre class="out-content" id="outContent"></pre></div></div>
+    <div id="appShell" class="app-shell hidden">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="row between">
+            <strong>Historial</strong>
+            <button type="button" onclick="createNewChat(true)">Nuevo chat</button>
+          </div>
+        </div>
+
+        <div id="chatList" class="chat-list"></div>
+
+        <div class="sidebar-user">
+          <small class="muted">Usuario</small>
+          <div id="sessionUser" style="font-weight:700; margin:4px 0 8px 0;"></div>
+          <div class="row">
+            <button type="button" class="secondary" onclick="toggleChangePassword(true)">Cambiar contraseña</button>
+            <button type="button" class="ghost" onclick="logout()">Cerrar sesión</button>
+          </div>
+
+          <div id="changePasswordPanel" class="panel hidden">
+            <h4 style="margin:0 0 8px 0;">Cambiar contraseña</h4>
+            <input id="currentPassword" type="password" placeholder="Contraseña actual" />
+            <input id="newPassword" type="password" placeholder="Nueva contraseña" />
+            <input id="confirmNewPassword" type="password" placeholder="Confirmar nueva contraseña" />
+            <div class="row">
+              <button type="button" onclick="changePassword()">Guardar</button>
+              <button type="button" class="ghost" onclick="toggleChangePassword(false)">Cancelar</button>
+            </div>
+            <small id="changePasswordFeedback"></small>
+          </div>
+        </div>
+      </aside>
+
+      <section class="main">
+        <div id="messages" class="messages"></div>
+
+        <div class="composer">
+          <textarea id="msg" placeholder="Escribe tu mensaje..."></textarea>
+          <div class="composer-controls">
+            <div class="row" style="gap:10px;">
+              <label class="muted"><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
+              <small id="composerStatus" class="status-badge hidden">Respondiendo...</small>
+              <small id="meta" class="muted"></small>
+            </div>
+            <div class="composer-actions">
+              <button id="stopBtn" type="button" class="danger hidden" onclick="stopStreaming()">Detener</button>
+              <button id="sendBtn" type="button" onclick="sendMessage()">Enviar</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -87,281 +262,751 @@ button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; co
 const API_BASE = "/api";
 const TOKEN_KEY = "itcom_auth_token";
 const USER_KEY = "itcom_auth_user";
+const ACTIVE_CHAT_KEY_PREFIX = "itcom_ai_active_chat_";
+const CHAT_KEY_PREFIX = "itcom_ai_chats_";
+
+const authShellEl = document.getElementById("authShell");
+const appShellEl = document.getElementById("appShell");
+const authErrorEl = document.getElementById("authError");
+const authMetaEl = document.getElementById("authMeta");
+const signupPanelEl = document.getElementById("signupPanel");
+const signupFeedbackEl = document.getElementById("signupFeedback");
+const sessionUserEl = document.getElementById("sessionUser");
+const changePasswordPanelEl = document.getElementById("changePasswordPanel");
+const changePasswordFeedbackEl = document.getElementById("changePasswordFeedback");
+const chatListEl = document.getElementById("chatList");
+const messagesEl = document.getElementById("messages");
+const msgEl = document.getElementById("msg");
+const metaEl = document.getElementById("meta");
+const sendBtnEl = document.getElementById("sendBtn");
+const stopBtnEl = document.getElementById("stopBtn");
+const streamingCheckboxEl = document.getElementById("streaming");
+const composerStatusEl = document.getElementById("composerStatus");
 
 document.getElementById("api").innerText = API_BASE;
 
-const authCardEl = document.getElementById("authCard");
-const chatCardEl = document.getElementById("chatCard");
-const authErrorEl = document.getElementById("authError");
-const authMetaEl = document.getElementById("authMeta");
-const sessionUserEl = document.getElementById("sessionUser");
+let conversations = [];
+let activeChatId = null;
+let isSending = false;
+let isStreaming = false;
+let currentAbortController = null;
+let activeStreamingChatId = null;
+let activeStreamingMessageId = null;
 
-const outScrollEl = document.getElementById("outScroll");
-const outContentEl = document.getElementById("outContent");
-const metaEl = document.getElementById("meta");
-const msgEl = document.getElementById("msg");
-
-let autoScrollEnabled = true;
-outScrollEl.addEventListener("scroll", () => {
-  const nearBottom = outScrollEl.scrollHeight - outScrollEl.scrollTop - outScrollEl.clientHeight < 24;
-  autoScrollEnabled = nearBottom;
-});
-
-function getToken(){
-  return localStorage.getItem(TOKEN_KEY) || "";
+function safeStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
-function authHeaders(extra = {}){
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
+function safeStorageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
+function getToken() {
+  return safeStorageGet(TOKEN_KEY) || "";
+}
+
+function getUser() {
+  return safeStorageGet(USER_KEY) || "";
+}
+
+function authHeaders(extra = {}) {
   const token = getToken();
   const headers = { ...extra };
-  if(token) headers.Authorization = `Bearer ${token}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
 
-function renderAuthState(){
+function chatsStorageKey() {
+  const user = getUser();
+  return `${CHAT_KEY_PREFIX}${user}`;
+}
+
+function activeStorageKey() {
+  const user = getUser();
+  return `${ACTIVE_CHAT_KEY_PREFIX}${user}`;
+}
+
+function setFeedback(el, text, isError = false) {
+  el.className = isError ? "error" : "success";
+  el.innerText = text;
+}
+
+function syncComposerHeight() {
+  if (!msgEl) return;
+  msgEl.style.height = "auto";
+  const maxHeight = 220;
+  const next = Math.min(msgEl.scrollHeight, maxHeight);
+  msgEl.style.height = `${Math.max(next, 56)}px`;
+  msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+
+function setComposerBusyState({ sending = false, streaming = false, status = "" } = {}) {
+  isSending = sending;
+  isStreaming = streaming;
+
+  sendBtnEl.disabled = sending;
+  streamingCheckboxEl.disabled = sending;
+  stopBtnEl.classList.toggle("hidden", !streaming);
+  stopBtnEl.disabled = !streaming;
+
+  if (status) {
+    composerStatusEl.innerText = status;
+    composerStatusEl.classList.remove("hidden");
+  } else {
+    composerStatusEl.innerText = "";
+    composerStatusEl.classList.add("hidden");
+  }
+}
+
+function clearStreamingState() {
+  currentAbortController = null;
+  activeStreamingChatId = null;
+  activeStreamingMessageId = null;
+  setComposerBusyState({ sending: false, streaming: false, status: "" });
+}
+
+window.stopStreaming = function () {
+  if (!currentAbortController) return;
+  currentAbortController.abort();
+  metaEl.innerText = "Streaming detenido";
+  clearStreamingState();
+  msgEl.focus();
+};
+
+function handleComposerKeydown(event) {
+  if (event.key !== "Enter") return;
+  if (event.shiftKey) return;
+  event.preventDefault();
+  if (isSending) return;
+  window.sendMessage();
+}
+
+msgEl.addEventListener("input", syncComposerHeight);
+msgEl.addEventListener("paste", () => setTimeout(syncComposerHeight, 0));
+msgEl.addEventListener("keydown", handleComposerKeydown);
+syncComposerHeight();
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function buildChatTitle(text) {
+  const raw = (text || "").trim();
+  if (!raw) return "Nuevo chat";
+  return raw.length > 42 ? `${raw.slice(0, 42)}…` : raw;
+}
+
+function createMessage(role, content = "") {
+  return {
+    id: `msg_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+    role,
+    content,
+  };
+}
+
+function createConversation(initialTitle = "Nuevo chat") {
+  const id = `chat_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+  const stamp = nowIso();
+  return {
+    id,
+    title: initialTitle,
+    createdAt: stamp,
+    updatedAt: stamp,
+    messages: [],
+  };
+}
+
+function sortConversations() {
+  conversations.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+}
+
+function saveChats() {
+  const user = getUser();
+  if (!user) return;
+  safeStorageSet(chatsStorageKey(), JSON.stringify(conversations));
+  if (activeChatId) safeStorageSet(activeStorageKey(), activeChatId);
+}
+
+function loadChats() {
+  const user = getUser();
+  if (!user) {
+    conversations = [];
+    activeChatId = null;
+    return;
+  }
+
+  const raw = safeStorageGet(chatsStorageKey());
+  if (!raw) {
+    conversations = [];
+    activeChatId = null;
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    conversations = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    conversations = [];
+  }
+
+  const savedActive = safeStorageGet(activeStorageKey());
+  activeChatId = savedActive || null;
+  sortConversations();
+}
+
+function getConversationById(chatId) {
+  return conversations.find((chat) => chat.id === chatId) || null;
+}
+
+function getActiveConversation() {
+  return getConversationById(activeChatId);
+}
+
+function ensureActiveConversation() {
+  if (!conversations.length) {
+    const chat = createConversation();
+    conversations.push(chat);
+    activeChatId = chat.id;
+    saveChats();
+    return;
+  }
+
+  const exists = conversations.some((chat) => chat.id === activeChatId);
+  if (!exists) activeChatId = conversations[0].id;
+}
+
+function renderSidebar() {
+  sortConversations();
+  chatListEl.innerHTML = "";
+  if (!conversations.length) {
+    const empty = document.createElement("small");
+    empty.className = "muted";
+    empty.innerText = "Sin conversaciones";
+    chatListEl.appendChild(empty);
+    return;
+  }
+
+  for (const chat of conversations) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = `chat-item ${chat.id === activeChatId ? "active" : ""}`;
+    item.onclick = () => window.selectChat(chat.id);
+
+    const head = document.createElement("div");
+    head.className = "chat-item-head";
+
+    const title = document.createElement("span");
+    title.className = "chat-item-title";
+    title.innerText = chat.title || "Nuevo chat";
+
+    const actions = document.createElement("div");
+    actions.className = "chat-item-actions";
+
+    const renameBtn = document.createElement("button");
+    renameBtn.type = "button";
+    renameBtn.className = "chat-action";
+    renameBtn.innerText = "✏️";
+    renameBtn.title = "Renombrar";
+    renameBtn.onclick = (event) => {
+      event.stopPropagation();
+      window.renameChat(chat.id);
+    };
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "chat-action";
+    deleteBtn.innerText = "🗑";
+    deleteBtn.title = "Eliminar";
+    deleteBtn.onclick = (event) => {
+      event.stopPropagation();
+      window.deleteChat(chat.id);
+    };
+
+    actions.appendChild(renameBtn);
+    actions.appendChild(deleteBtn);
+    head.appendChild(title);
+    head.appendChild(actions);
+
+    const date = document.createElement("span");
+    date.className = "chat-item-date";
+    const d = new Date(chat.updatedAt || chat.createdAt || nowIso());
+    date.innerText = d.toLocaleString();
+
+    item.appendChild(head);
+    item.appendChild(date);
+    chatListEl.appendChild(item);
+  }
+}
+
+window.renameChat = function (chatId) {
+  const chat = getConversationById(chatId);
+  if (!chat) return;
+
+  const currentTitle = chat.title || "Nuevo chat";
+  const nextTitle = window.prompt("Nuevo nombre de la conversación:", currentTitle);
+  if (nextTitle === null) return;
+
+  const clean = nextTitle.trim();
+  if (!clean) {
+    window.alert("El nombre no puede estar vacío");
+    return;
+  }
+
+  chat.title = clean.length > 60 ? `${clean.slice(0, 60)}…` : clean;
+  chat.updatedAt = nowIso();
+  saveChats();
+  renderSidebar();
+};
+
+window.deleteChat = function (chatId) {
+  const chat = getConversationById(chatId);
+  if (!chat) return;
+
+  const confirmed = window.confirm(`¿Eliminar la conversación \"${chat.title || "Nuevo chat"}\"?`);
+  if (!confirmed) return;
+
+  conversations = conversations.filter((item) => item.id !== chatId);
+
+  if (!conversations.length) {
+    const fresh = createConversation("Nuevo chat");
+    conversations.push(fresh);
+    activeChatId = fresh.id;
+  } else if (activeChatId === chatId) {
+    sortConversations();
+    activeChatId = conversations[0].id;
+  }
+
+  saveChats();
+  renderSidebar();
+  renderConversation();
+};
+
+function renderConversation() {
+  const chat = getActiveConversation();
+  messagesEl.innerHTML = "";
+
+  if (!chat || !chat.messages.length) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.style.margin = "auto";
+    empty.innerText = "Inicia una conversación...";
+    messagesEl.appendChild(empty);
+    return;
+  }
+
+  for (const msg of (Array.isArray(chat.messages) ? chat.messages : [])) {
+    const bubble = document.createElement("div");
+    bubble.className = `message ${msg.role}`;
+    bubble.innerText = msg.content || "...";
+    messagesEl.appendChild(bubble);
+  }
+
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function appendMessage(chatId, role, content) {
+  const chat = getConversationById(chatId);
+  if (!chat) return null;
+  if (!Array.isArray(chat.messages)) chat.messages = [];
+  const msg = createMessage(role, content);
+  chat.messages.push(msg);
+  chat.updatedAt = nowIso();
+  saveChats();
+  renderSidebar();
+  renderConversation();
+  return msg.id;
+}
+
+function updateAssistantMessage(chatId, messageId, content) {
+  const chat = getConversationById(chatId);
+  if (!chat) return;
+  if (!Array.isArray(chat.messages)) chat.messages = [];
+  const msg = chat.messages.find((m) => m.id === messageId);
+  if (!msg) return;
+  msg.content = content;
+  chat.updatedAt = nowIso();
+  saveChats();
+  renderSidebar();
+  renderConversation();
+}
+
+window.selectChat = function (chatId) {
+  if (isStreaming) window.stopStreaming();
+  activeChatId = chatId;
+  saveChats();
+  renderSidebar();
+  renderConversation();
+  syncComposerHeight();
+  msgEl.focus();
+};
+
+window.createNewChat = function (focusInput = false) {
+  if (isStreaming) window.stopStreaming();
+  const current = getActiveConversation();
+  if (current && Array.isArray(current.messages) && current.messages.length === 0) {
+    activeChatId = current.id;
+    renderSidebar();
+    renderConversation();
+    if (focusInput) msgEl.focus();
+    return;
+  }
+
+  const chat = createConversation("Nuevo chat");
+  conversations.push(chat);
+  activeChatId = chat.id;
+  saveChats();
+  renderSidebar();
+  renderConversation();
+  syncComposerHeight();
+  if (focusInput) msgEl.focus();
+};
+
+function renderAuthState() {
   const token = getToken();
-  const user = localStorage.getItem(USER_KEY) || "";
+  const user = getUser();
   const loggedIn = Boolean(token && user);
-  authCardEl.classList.toggle("hidden", loggedIn);
-  chatCardEl.classList.toggle("hidden", !loggedIn);
-  sessionUserEl.innerText = user;
-  authMetaEl.innerText = loggedIn ? `Autenticado como ${user}` : "";
+
+  authShellEl.classList.toggle("hidden", loggedIn);
+  appShellEl.classList.toggle("hidden", !loggedIn);
+  sessionUserEl.innerText = user ? user : "";
+
+  if (!loggedIn) {
+    clearStreamingState();
+    return;
+  }
+
+  loadChats();
+  ensureActiveConversation();
+  saveChats();
+  renderSidebar();
+  renderConversation();
+  setComposerBusyState({ sending: false, streaming: false, status: "" });
+  syncComposerHeight();
 }
 
-function logout(){
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  authErrorEl.innerText = "";
-  metaEl.innerText = "Sesión cerrada";
-  renderAuthState();
-}
+window.toggleSignup = function (show) {
+  signupPanelEl.classList.toggle("hidden", !show);
+  if (!show) signupFeedbackEl.innerText = "";
+};
 
-async function login(){
+window.toggleChangePassword = function (show) {
+  changePasswordPanelEl.classList.toggle("hidden", !show);
+  if (!show) changePasswordFeedbackEl.innerText = "";
+};
+
+window.signup = async function () {
+  const username = document.getElementById("signupUsername").value.trim();
+  const password = document.getElementById("signupPassword").value;
+  const confirmPassword = document.getElementById("signupConfirmPassword").value;
+
+  if (!username || !password || !confirmPassword) {
+    setFeedback(signupFeedbackEl, "Todos los campos son obligatorios", true);
+    return;
+  }
+  if (password !== confirmPassword) {
+    setFeedback(signupFeedbackEl, "Password y confirmación no coinciden", true);
+    return;
+  }
+
+  try {
+    const response = await fetch(API_BASE + "/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setFeedback(signupFeedbackEl, `Error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    setFeedback(signupFeedbackEl, "Cuenta creada. Ya puedes iniciar sesión.");
+    document.getElementById("username").value = username;
+  } catch (err) {
+    setFeedback(signupFeedbackEl, `No se pudo registrar: ${err}`, true);
+  }
+};
+
+window.login = async function () {
   authErrorEl.innerText = "";
   authMetaEl.innerText = "Autenticando...";
+
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
-  if(!username || !password){
+  if (!username || !password) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = "Usuario y contraseña son requeridos";
     return;
   }
 
   try {
-    const r = await fetch(API_BASE + "/auth/login", {
+    const response = await fetch(API_BASE + "/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password }),
     });
 
-    const txt = await r.text();
-    if (!r.ok) {
-      const detail = (() => {
-        try {
-          const parsed = JSON.parse(txt);
-          return parsed.detail || txt;
-        } catch {
-          return txt;
-        }
-      })();
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
       authMetaEl.innerText = "";
-      authErrorEl.innerText = `Login error (${r.status}): ${detail}`;
+      authErrorEl.innerText = `Login error (${response.status}): ${detail}`;
       return;
     }
 
-    const data = JSON.parse(txt);
-    if (!data.access_token) {
+    const data = JSON.parse(bodyText);
+    const token = data.access_token || data.token;
+    if (!token) {
       authMetaEl.innerText = "";
       authErrorEl.innerText = "Login inválido: respuesta sin token";
       return;
     }
 
-    localStorage.setItem(TOKEN_KEY, data.access_token);
-    localStorage.setItem(USER_KEY, data.user || username);
+    safeStorageSet(TOKEN_KEY, token);
+    safeStorageSet(USER_KEY, data.user || username);
     authMetaEl.innerText = "";
+    metaEl.innerText = "Autenticado";
     renderAuthState();
   } catch (err) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = `No se pudo conectar al backend: ${err}`;
   }
-}
+};
 
-function syncMessageInputHeight(){
-  if(!msgEl) return;
-const msgEl = document.getElementById("msg");
+window.logout = function () {
+  if (isStreaming) window.stopStreaming();
+  safeStorageRemove(TOKEN_KEY);
+  safeStorageRemove(USER_KEY);
+  conversations = [];
+  activeChatId = null;
+  authMetaEl.innerText = "";
+  authErrorEl.innerText = "";
+  metaEl.innerText = "Sesión cerrada";
+  changePasswordPanelEl.classList.add("hidden");
+  syncComposerHeight();
+  renderAuthState();
+};
 
-function syncMessageInputHeight() {
-  msgEl.style.height = "auto";
-  const maxHeight = 220;
-  const nextHeight = Math.min(msgEl.scrollHeight, maxHeight);
-  msgEl.style.height = `${nextHeight}px`;
-  msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
-}
+window.changePassword = async function () {
+  const currentPassword = document.getElementById("currentPassword").value;
+  const newPassword = document.getElementById("newPassword").value;
+  const confirmNewPassword = document.getElementById("confirmNewPassword").value;
 
-msgEl.addEventListener("input", syncMessageInputHeight);
-syncMessageInputHeight();
-
-const msgEl = document.getElementById("msg");
-function syncMessageInputHeight(){
-  msgEl.style.height = "auto";
-  const maxHeight = 220;
-  const nextHeight = Math.min(msgEl.scrollHeight, maxHeight);
-  msgEl.style.height = `${nextHeight}px`;
-  msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
-}
-msgEl.addEventListener("input", syncMessageInputHeight);
-syncMessageInputHeight();
-
-function scrollOutputIfNeeded(force = false){
-  if(force || autoScrollEnabled){
-    outScrollEl.scrollTop = outScrollEl.scrollHeight;
+  if (!currentPassword || !newPassword || !confirmNewPassword) {
+    setFeedback(changePasswordFeedbackEl, "Todos los campos son obligatorios", true);
+    return;
   }
-}
+  if (newPassword !== confirmNewPassword) {
+    setFeedback(changePasswordFeedbackEl, "Nueva contraseña y confirmación no coinciden", true);
+    return;
+  }
 
-function appendOutput(text){
-  outContentEl.textContent += text;
-  scrollOutputIfNeeded();
-}
+  try {
+    const response = await fetch(API_BASE + "/auth/change-password", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
 
-function resetOutput(){
-  outContentEl.textContent = "";
-  autoScrollEnabled = true;
-  scrollOutputIfNeeded(true);
-}
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setFeedback(changePasswordFeedbackEl, `Error (${response.status}): ${detail}`, true);
+      if (response.status === 401) metaEl.innerText = "No autorizado";
+      return;
+    }
 
-function applyDoneMeta(data){
-  const isTruncated = Boolean(data.truncated);
-  const doneReason = data.done_reason ? ` (${data.done_reason})` : "";
-  metaEl.innerText = isTruncated
-    ? `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta truncada${doneReason}`
-    : `Modelo: ${data.model} • ${data.took_ms}ms • Respuesta completa`;
-}
+    setFeedback(changePasswordFeedbackEl, "Contraseña actualizada correctamente");
+  } catch (err) {
+    setFeedback(changePasswordFeedbackEl, `No se pudo cambiar contraseña: ${err}`, true);
+  }
+};
 
-function processSseEvents(rawEvents){
-  for(const evt of rawEvents){
-    if(!evt.trim()) continue;
+function parseSseEvents(raw, onToken, onDone, onError) {
+  const chunks = raw.split("\n\n");
+  let remain = chunks.pop() || "";
 
-    const dataLines = evt
+  for (const evt of chunks) {
+    if (!evt.trim()) continue;
+    const payload = evt
       .split("\n")
       .filter((line) => line.startsWith("data: "))
-      .map((line) => line.slice(6));
+      .map((line) => line.slice(6))
+      .join("\n");
+    if (!payload) continue;
 
-    if(dataLines.length === 0) continue;
-
-    const payload = dataLines.join("\n");
-    let data;
     try {
-      data = JSON.parse(payload);
-    } catch {
-      continue;
-    }
-
-    if(data.error){
-      metaEl.innerText = "Error de streaming";
-      appendOutput(`\n[ERROR] ${data.error}`);
-      return true;
-    }
-
-    if(data.token){
-      appendOutput(data.token);
-    }
-
-    if(data.done){
-      if(typeof data.answer === "string") outContentEl.textContent = data.answer;
-      applyDoneMeta(data);
-      scrollOutputIfNeeded(true);
-      return true;
-    }
+      const data = JSON.parse(payload);
+      if (data.error) onError(data.error);
+      if (data.token) onToken(data.token);
+      if (data.done) onDone(data);
+    } catch {}
   }
 
-  return false;
+  return remain;
 }
 
-async function send(){
-  const msg = msgEl.value.trim();
-  const useStreaming = document.getElementById("streaming").checked;
-  if(!msg) return;
+async function sendStreaming(chatId, prompt, assistantMsgId) {
+  currentAbortController = new AbortController();
+  activeStreamingChatId = chatId;
+  activeStreamingMessageId = assistantMsgId;
 
-  metaEl.innerText = useStreaming ? "Consultando (stream)..." : "Consultando...";
-  resetOutput();
-
-  if(useStreaming){
-    await sendStreaming(msg);
-    return;
-  }
-
-  const r = await fetch(API_BASE + "/chat", {
-    method:"POST",
-    headers: authHeaders({ "Content-Type":"application/json" }),
-    body: JSON.stringify({ message: msg, user: localStorage.getItem(USER_KEY) || "board-demo" })
-  });
-
-  const txt = await r.text();
-  if(r.status === 401){
-    metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
-    logout();
-    return;
-  }
-  if(!r.ok){
-    metaEl.innerText = "Error: " + r.status;
-    outContentEl.textContent = txt;
-    return;
-  }
-
-  const data = JSON.parse(txt);
-  outContentEl.textContent = data.answer || "";
-  applyDoneMeta(data);
-  scrollOutputIfNeeded(true);
-}
-
-async function sendStreaming(msg){
   const response = await fetch(API_BASE + "/chat/stream", {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ message: msg, user: localStorage.getItem(USER_KEY) || "board-demo" })
+    body: JSON.stringify({ message: prompt, user: getUser() || "board-demo" }),
+    signal: currentAbortController.signal,
   });
 
-  if(response.status === 401){
+  if (response.status === 401) {
     metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
-    logout();
+    window.logout();
     return;
   }
 
-  if(!response.ok || !response.body){
+  if (!response.ok || !response.body) {
     const txt = await response.text();
+    updateAssistantMessage(chatId, assistantMsgId, `[ERROR] ${txt}`);
     metaEl.innerText = "Error: " + response.status;
-    outContentEl.textContent = txt;
     return;
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let current = "";
 
-  while(true){
+  while (true) {
     const { value, done } = await reader.read();
 
-    if(value){
+    if (value) {
       buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split("\n\n");
-      buffer = events.pop() || "";
-      const shouldStop = processSseEvents(events);
-      if(shouldStop) return;
+      buffer = parseSseEvents(
+        buffer,
+        (token) => {
+          current += token;
+          if (activeStreamingChatId === chatId && activeStreamingMessageId === assistantMsgId) {
+            updateAssistantMessage(chatId, assistantMsgId, current);
+          }
+        },
+        (data) => {
+          if (typeof data.answer === "string") {
+            current = data.answer;
+            if (activeStreamingChatId === chatId && activeStreamingMessageId === assistantMsgId) {
+              updateAssistantMessage(chatId, assistantMsgId, current);
+            }
+          }
+          metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms`;
+        },
+        (err) => {
+          current += `\n[ERROR] ${err}`;
+          if (activeStreamingChatId === chatId && activeStreamingMessageId === assistantMsgId) {
+            updateAssistantMessage(chatId, assistantMsgId, current);
+          }
+          metaEl.innerText = "Error de streaming";
+        }
+      );
     }
 
-    if(done){
+    if (done) {
       buffer += decoder.decode();
-      if(buffer.trim()){
-        const shouldStop = processSseEvents([buffer]);
-        if(shouldStop) return;
+      if (buffer.trim()) {
+        parseSseEvents(buffer, () => {}, () => {}, () => {});
       }
-      metaEl.innerText = (metaEl.innerText.includes("Respuesta completa") || metaEl.innerText.includes("Respuesta truncada"))
-        ? metaEl.innerText
-        : "Stream finalizado";
       return;
     }
   }
 }
+
+window.sendMessage = async function () {
+  if (isSending) return;
+  const prompt = msgEl.value.trim();
+  if (!prompt) return;
+
+  const useStreaming = document.getElementById("streaming").checked;
+  ensureActiveConversation();
+
+  const chat = getActiveConversation();
+  if (chat && (chat.title === "Nuevo chat" || !chat.title.trim())) {
+    chat.title = buildChatTitle(prompt);
+  }
+
+  const chatId = chat.id;
+  appendMessage(chatId, "user", prompt);
+  const assistantMsgId = appendMessage(chatId, "assistant", "...");
+  msgEl.value = "";
+  syncComposerHeight();
+  msgEl.focus();
+
+  if (useStreaming) {
+    metaEl.innerText = "Consultando (stream)...";
+    setComposerBusyState({ sending: true, streaming: true, status: "Respondiendo..." });
+    try {
+      await sendStreaming(chatId, prompt, assistantMsgId);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        updateAssistantMessage(chatId, assistantMsgId, `[ERROR] ${err}`);
+        metaEl.innerText = "Error de streaming";
+      }
+    } finally {
+      clearStreamingState();
+      syncComposerHeight();
+      msgEl.focus();
+    }
+    return;
+  }
+
+  metaEl.innerText = "Consultando...";
+  setComposerBusyState({ sending: true, streaming: false, status: "Enviando..." });
+  try {
+    const response = await fetch(API_BASE + "/chat", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ message: prompt, user: getUser() || "board-demo" }),
+    });
+
+    const txt = await response.text();
+    if (response.status === 401) {
+      metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
+      window.logout();
+      return;
+    }
+
+    if (!response.ok) {
+      updateAssistantMessage(chatId, assistantMsgId, `[ERROR ${response.status}] ${txt}`);
+      metaEl.innerText = "Error: " + response.status;
+      return;
+    }
+
+    const data = JSON.parse(txt);
+    updateAssistantMessage(chatId, assistantMsgId, data.answer || "");
+    metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms`;
+  } catch (err) {
+    updateAssistantMessage(chatId, assistantMsgId, `[ERROR] ${err}`);
+    metaEl.innerText = "Error de conexión";
+  } finally {
+    setComposerBusyState({ sending: false, streaming: false, status: "" });
+    syncComposerHeight();
+    msgEl.focus();
+  }
+};
 
 renderAuthState();
 </script>
