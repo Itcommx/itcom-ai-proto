@@ -113,7 +113,26 @@
       background: var(--panel-alt);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
+    }
+
+    .composer-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .composer-actions { display: flex; gap: 8px; }
+
+    .status-badge {
+      font-size: 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 8px;
+      color: var(--muted);
+      background: rgba(23, 35, 67, 0.7);
     }
 
     textarea, input {
@@ -125,7 +144,7 @@
       color: var(--text);
       font: inherit;
     }
-    textarea { min-height: 52px; max-height: 170px; resize: vertical; }
+    textarea { min-height: 56px; max-height: 220px; resize: none; overflow-y: hidden; }
 
     button {
       border: 0;
@@ -137,6 +156,8 @@
     }
     button.secondary { background: #24305e; }
     button.ghost { background: transparent; border: 1px solid #3952a3; }
+    button.danger { background: #8b2f46; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .between { justify-content: space-between; }
@@ -221,12 +242,16 @@
 
         <div class="composer">
           <textarea id="msg" placeholder="Escribe tu mensaje..."></textarea>
-          <div class="row between">
-            <div class="row">
+          <div class="composer-controls">
+            <div class="row" style="gap:10px;">
               <label class="muted"><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
+              <small id="composerStatus" class="status-badge hidden">Respondiendo...</small>
               <small id="meta" class="muted"></small>
             </div>
-            <button type="button" onclick="sendMessage()">Enviar</button>
+            <div class="composer-actions">
+              <button id="stopBtn" type="button" class="danger hidden" onclick="stopStreaming()">Detener</button>
+              <button id="sendBtn" type="button" onclick="sendMessage()">Enviar</button>
+            </div>
           </div>
         </div>
       </section>
@@ -256,11 +281,21 @@ const chatListEl = document.getElementById("chatList");
 const messagesEl = document.getElementById("messages");
 const metaEl = document.getElementById("meta");
 const msgEl = document.getElementById("msg");
+const metaEl = document.getElementById("meta");
+const sendBtnEl = document.getElementById("sendBtn");
+const stopBtnEl = document.getElementById("stopBtn");
+const streamingCheckboxEl = document.getElementById("streaming");
+const composerStatusEl = document.getElementById("composerStatus");
 
 document.getElementById("api").innerText = API_BASE;
 
 let conversations = [];
 let activeChatId = null;
+let isSending = false;
+let isStreaming = false;
+let currentAbortController = null;
+let activeStreamingChatId = null;
+let activeStreamingMessageId = null;
 
 function safeStorageGet(key) {
   try {
@@ -281,11 +316,11 @@ function safeStorageRemove(key) {
     localStorage.removeItem(key);
   } catch {}
 }
-function setFeedback(el, text, isError = false) {
+  function setFeedback(el, text, isError = false) {
   el.className = isError ? "error" : "success";
   el.innerText = text;
 }
-  
+
 function getToken() {
   return safeStorageGet(TOKEN_KEY) || "";
 }
@@ -315,6 +350,61 @@ function setFeedback(el, text, isError = false) {
   el.className = isError ? "error" : "success";
   el.innerText = text;
 }
+
+function syncComposerHeight() {
+  if (!msgEl) return;
+  msgEl.style.height = "auto";
+  const maxHeight = 220;
+  const next = Math.min(msgEl.scrollHeight, maxHeight);
+  msgEl.style.height = `${Math.max(next, 56)}px`;
+  msgEl.style.overflowY = msgEl.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+
+function setComposerBusyState({ sending = false, streaming = false, status = "" } = {}) {
+  isSending = sending;
+  isStreaming = streaming;
+
+  sendBtnEl.disabled = sending;
+  streamingCheckboxEl.disabled = sending;
+  stopBtnEl.classList.toggle("hidden", !streaming);
+  stopBtnEl.disabled = !streaming;
+
+  if (status) {
+    composerStatusEl.innerText = status;
+    composerStatusEl.classList.remove("hidden");
+  } else {
+    composerStatusEl.innerText = "";
+    composerStatusEl.classList.add("hidden");
+  }
+}
+
+function clearStreamingState() {
+  currentAbortController = null;
+  activeStreamingChatId = null;
+  activeStreamingMessageId = null;
+  setComposerBusyState({ sending: false, streaming: false, status: "" });
+}
+
+window.stopStreaming = function () {
+  if (!currentAbortController) return;
+  currentAbortController.abort();
+  metaEl.innerText = "Streaming detenido";
+  clearStreamingState();
+  msgEl.focus();
+};
+
+function handleComposerKeydown(event) {
+  if (event.key !== "Enter") return;
+  if (event.shiftKey) return;
+  event.preventDefault();
+  if (isSending) return;
+  window.sendMessage();
+}
+
+msgEl.addEventListener("input", syncComposerHeight);
+msgEl.addEventListener("paste", () => setTimeout(syncComposerHeight, 0));
+msgEl.addEventListener("keydown", handleComposerKeydown);
+syncComposerHeight();
 
 function nowIso() {
   return new Date().toISOString();
@@ -561,14 +651,17 @@ function updateAssistantMessage(chatId, messageId, content) {
 }
 
 window.selectChat = function (chatId) {
+  if (isStreaming) window.stopStreaming();
   activeChatId = chatId;
   saveChats();
   renderSidebar();
   renderConversation();
+  syncComposerHeight();
   msgEl.focus();
 };
 
 window.createNewChat = function (focusInput = false) {
+  if (isStreaming) window.stopStreaming();
   const current = getActiveConversation();
   if (current && Array.isArray(current.messages) && current.messages.length === 0) {
     activeChatId = current.id;
@@ -584,6 +677,7 @@ window.createNewChat = function (focusInput = false) {
   saveChats();
   renderSidebar();
   renderConversation();
+  syncComposerHeight();
   if (focusInput) msgEl.focus();
 };
 
@@ -596,13 +690,18 @@ function renderAuthState() {
   appShellEl.classList.toggle("hidden", !loggedIn);
   sessionUserEl.innerText = user ? user : "";
 
-  if (!loggedIn) return;
+  if (!loggedIn) {
+    clearStreamingState();
+    return;
+  }
 
   loadChats();
   ensureActiveConversation();
   saveChats();
   renderSidebar();
   renderConversation();
+  setComposerBusyState({ sending: false, streaming: false, status: "" });
+  syncComposerHeight();
 }
 
 window.toggleSignup = function (show) {
@@ -699,6 +798,7 @@ window.login = async function () {
 };
 
 window.logout = function () {
+  if (isStreaming) window.stopStreaming();
   safeStorageRemove(TOKEN_KEY);
   safeStorageRemove(USER_KEY);
   conversations = [];
@@ -707,6 +807,7 @@ window.logout = function () {
   authErrorEl.innerText = "";
   metaEl.innerText = "Sesión cerrada";
   changePasswordPanelEl.classList.add("hidden");
+  syncComposerHeight();
   renderAuthState();
 };
 
@@ -766,15 +867,21 @@ function parseSseEvents(raw, onToken, onDone, onError) {
       if (data.done) onDone(data);
     } catch {}
   }
+};
 
   return remain;
 }
 
 async function sendStreaming(chatId, prompt, assistantMsgId) {
+  currentAbortController = new AbortController();
+  activeStreamingChatId = chatId;
+  activeStreamingMessageId = assistantMsgId;
+
   const response = await fetch(API_BASE + "/chat/stream", {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ message: prompt, user: getUser() || "board-demo" }),
+    signal: currentAbortController.signal,
   });
 
   if (response.status === 401) {
@@ -804,18 +911,24 @@ async function sendStreaming(chatId, prompt, assistantMsgId) {
         buffer,
         (token) => {
           current += token;
-          updateAssistantMessage(chatId, assistantMsgId, current);
+          if (activeStreamingChatId === chatId && activeStreamingMessageId === assistantMsgId) {
+            updateAssistantMessage(chatId, assistantMsgId, current);
+          }
         },
         (data) => {
           if (typeof data.answer === "string") {
             current = data.answer;
-            updateAssistantMessage(chatId, assistantMsgId, current);
+            if (activeStreamingChatId === chatId && activeStreamingMessageId === assistantMsgId) {
+              updateAssistantMessage(chatId, assistantMsgId, current);
+            }
           }
           metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms`;
         },
         (err) => {
           current += `\n[ERROR] ${err}`;
-          updateAssistantMessage(chatId, assistantMsgId, current);
+          if (activeStreamingChatId === chatId && activeStreamingMessageId === assistantMsgId) {
+            updateAssistantMessage(chatId, assistantMsgId, current);
+          }
           metaEl.innerText = "Error de streaming";
         }
       );
@@ -832,6 +945,7 @@ async function sendStreaming(chatId, prompt, assistantMsgId) {
 }
 
 window.sendMessage = async function () {
+  if (isSending) return;
   const prompt = msgEl.value.trim();
   if (!prompt) return;
 
@@ -847,37 +961,60 @@ window.sendMessage = async function () {
   appendMessage(chatId, "user", prompt);
   const assistantMsgId = appendMessage(chatId, "assistant", "...");
   msgEl.value = "";
+  syncComposerHeight();
   msgEl.focus();
 
   if (useStreaming) {
     metaEl.innerText = "Consultando (stream)...";
-    await sendStreaming(chatId, prompt, assistantMsgId);
+    setComposerBusyState({ sending: true, streaming: true, status: "Respondiendo..." });
+    try {
+      await sendStreaming(chatId, prompt, assistantMsgId);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        updateAssistantMessage(chatId, assistantMsgId, `[ERROR] ${err}`);
+        metaEl.innerText = "Error de streaming";
+      }
+    } finally {
+      clearStreamingState();
+      syncComposerHeight();
+      msgEl.focus();
+    }
     return;
   }
 
   metaEl.innerText = "Consultando...";
-  const response = await fetch(API_BASE + "/chat", {
-    method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ message: prompt, user: getUser() || "board-demo" }),
-  });
+  setComposerBusyState({ sending: true, streaming: false, status: "Enviando..." });
+  try {
+    const response = await fetch(API_BASE + "/chat", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ message: prompt, user: getUser() || "board-demo" }),
+    });
 
-  const txt = await response.text();
-  if (response.status === 401) {
-    metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
-    window.logout();
-    return;
+    const txt = await response.text();
+    if (response.status === 401) {
+      metaEl.innerText = "Sesión inválida. Inicia sesión de nuevo.";
+      window.logout();
+      return;
+    }
+
+    if (!response.ok) {
+      updateAssistantMessage(chatId, assistantMsgId, `[ERROR ${response.status}] ${txt}`);
+      metaEl.innerText = "Error: " + response.status;
+      return;
+    }
+
+    const data = JSON.parse(txt);
+    updateAssistantMessage(chatId, assistantMsgId, data.answer || "");
+    metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms`;
+  } catch (err) {
+    updateAssistantMessage(chatId, assistantMsgId, `[ERROR] ${err}`);
+    metaEl.innerText = "Error de conexión";
+  } finally {
+    setComposerBusyState({ sending: false, streaming: false, status: "" });
+    syncComposerHeight();
+    msgEl.focus();
   }
-
-  if (!response.ok) {
-    updateAssistantMessage(chatId, assistantMsgId, `[ERROR ${response.status}] ${txt}`);
-    metaEl.innerText = "Error: " + response.status;
-    return;
-  }
-
-  const data = JSON.parse(txt);
-  updateAssistantMessage(chatId, assistantMsgId, data.answer || "");
-  metaEl.innerText = `Modelo: ${data.model} • ${data.took_ms}ms`;
 };
 
 renderAuthState();
