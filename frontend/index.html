@@ -16,7 +16,7 @@ textarea { min-height:90px; max-height:220px; resize:vertical; overflow-y:auto; 
 
 button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; color:white; cursor:pointer; }
 
-.row { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+.row { display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap; }
 
 .out {
   height: clamp(180px, 50vh, 420px);
@@ -62,7 +62,7 @@ button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; co
       <input id="username" placeholder="Usuario" />
       <input id="password" type="password" placeholder="Contraseña" />
       <div class="row">
-        <button onclick="login()">Iniciar sesión</button>
+        <button type="button" onclick="login()">Iniciar sesión</button>
         <small id="authMeta"></small>
       </div>
       <small id="authError" class="auth-error"></small>
@@ -71,11 +71,11 @@ button { padding:10px 14px; border-radius:10px; border:0; background:#4c7dff; co
     <div class="card hidden" id="chatCard">
       <div class="row">
         <small>Sesión: <span id="sessionUser"></span></small>
-        <button onclick="logout()">Cerrar sesión</button>
+        <button type="button" onclick="logout()">Cerrar sesión</button>
       </div>
       <textarea id="msg" placeholder="Ej: Resume en 5 bullets el propósito de este prototipo para junta directiva."></textarea>
       <div class="row">
-        <button onclick="send()">Enviar</button>
+        <button type="button" onclick="send()">Enviar</button>
         <label><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
         <small id="meta"></small>
       </div>
@@ -96,7 +96,6 @@ const authErrorEl = document.getElementById("authError");
 const authMetaEl = document.getElementById("authMeta");
 const sessionUserEl = document.getElementById("sessionUser");
 
-const outEl = document.getElementById("out");
 const outScrollEl = document.getElementById("outScroll");
 const outContentEl = document.getElementById("outContent");
 const metaEl = document.getElementById("meta");
@@ -148,7 +147,7 @@ async function login(){
     return;
   }
 
-    try {
+  try {
     const r = await fetch(API_BASE + "/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -187,6 +186,8 @@ async function login(){
   }
 }
 
+function syncMessageInputHeight(){
+  if(!msgEl) return;
 const msgEl = document.getElementById("msg");
 
 function syncMessageInputHeight() {
