@@ -224,9 +224,10 @@ async function sendStreaming(msg){
     if(done){
       buffer += decoder.decode();
       if(buffer.trim()){
-        processSseEvents([buffer]);
+        const shouldStop = processSseEvents([buffer]);
+        if(shouldStop) return;
       }
-      metaEl.innerText = metaEl.innerText.includes("Respuesta completa")
+      metaEl.innerText = (metaEl.innerText.includes("Respuesta completa") || metaEl.innerText.includes("Respuesta truncada"))
         ? metaEl.innerText
         : "Stream finalizado";
       return;

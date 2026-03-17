@@ -33,6 +33,68 @@ def is_truncated(done_reason: str | None) -> bool:
     return (done_reason or "").lower() in {"length", "max_tokens"}
 
 
+def now_ts() -> int:
+    return int(time.time())
+
+
+def append_log_event(event: dict):
+    os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+    event_with_ts = {"timestamp": now_ts(), **event}
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(event_with_ts, ensure_ascii=False) + "\n")
+
+
+def log_chat_event(
+    endpoint: str,
+    user: str | None,
+    prompt_chars: int,
+    took_ms: int,
+    answer_length: int,
+    truncated: bool,
+    done_reason: str | None,
+    error: str | None = None,
+):
+    append_log_event(
+        {
+            "endpoint": endpoint,
+            "user": user,
+            "model": OLLAMA_MODEL,
+            "prompt_chars": prompt_chars,
+            "took_ms": took_ms,
+            "answer_length": answer_length,
+            "truncated": truncated,
+            "done_reason": done_reason,
+            "error": error,
+        }
+    ):
+    
+    append_log_event(
+        {
+            "endpoint": endpoint,
+            "user": user,
+            "model": settings.ollama_model,
+            "prompt_chars": prompt_chars,
+            "took_ms": took_ms,
+            "answer_length": answer_length,
+            "truncated": truncated,
+            "done_reason": done_reason,
+            "error": error,
+        }
+    )
+
+
+def ollama_error_message(last_error: Exception | None) -> str:
+    return f"Error llamando a Ollama tras {OLLAMA_RETRIES} intentos: {last_error}"
+
+
+def build_generate_payload(message: str, stream: bool) -> dict:
+    return {
+        "model": settings.OLLAMA_MODEL,
+        "prompt": build_prompt(message),
+        "stream": stream,
+        "options": {"num_predict": settings.NUM_PREDICT, "temperature": 0.2},
+    }
+
 def append_log_event(user: str | None, took_ms: int, prompt_chars: int):
     log_event = {
         "ts": int(time.time()),
@@ -52,9 +114,14 @@ def health():
     return {
         "status": "ok",
         "app": settings.app_name,
+        "app_name": settings.app_name,
         "model": settings.ollama_model,
         "ollama_url": settings.ollama_url,
         "num_predict": settings.num_predict,
+        "ollama_timeout": settings.ollama_timeout,
+        "ollama_retries": settings.ollama_retries,
+        "log_path": settings.log_path,
+        "timestamp": now_ts(),
     }
 
 
@@ -66,12 +133,7 @@ def chat(req: ChatRequest):
     if not msg:
         raise HTTPException(status_code=400, detail="message vacío")
 
-    payload = {
-        "model": settings.ollama_model,
-        "prompt": build_prompt(msg),
-        "stream": False,
-        "options": {"num_predict": settings.num_predict, "temperature": 0.2},
-    }
+    payload = build_generate_payload(msg, stream=False)
 
     last_error = None
     data = None
@@ -85,18 +147,53 @@ def chat(req: ChatRequest):
             response.raise_for_status()
             data = response.json()
             break
-        except requests.RequestException as exc:
+        except (requests.RequestException, json.JSONDecodeError) as exc:
             last_error = exc
             if attempt < settings.ollama_retries:
                 time.sleep(0.5)
 
     if data is None:
+        took_ms = int((time.time() - t0) * 1000)
+        error_msg = ollama_error_message(last_error)
+        log_chat_event(
+            endpoint="/chat",
+            user=req.user,
+            prompt_chars=len(msg),
+            took_ms=took_ms,
+            answer_length=0,
+            truncated=False,
+            done_reason=None,
+            error=error_msg,
         raise HTTPException(
             status_code=502,
             detail=f"Error llamando a Ollama tras {settings.ollama_retries} intentos: {last_error}",
         )
+        raise HTTPException(status_code=502, detail=error_msg)
 
-    took_ms = int((time.time() - t0) * 1000)
+took_ms = int((time.time() - t0) * 1000)
+answer = (data.get("response") or "").strip()
+done_reason = data.get("done_reason")
+truncated = is_truncated(done_reason)
+
+log_chat_event(
+    endpoint="/chat",
+    user=req.user,
+    prompt_chars=len(msg),
+    took_ms=took_ms,
+    answer_length=len(answer),
+    truncated=truncated,
+    done_reason=done_reason,
+    error=None,
+)
+
+return {
+    "answer": answer,
+    "took_ms": took_ms,
+    "model": settings.ollama_model,
+    "truncated": truncated,
+    "done_reason": done_reason,
+}
+    }
     answer = (data.get("response") or "").strip()
     done_reason = data.get("done_reason")
     truncated = is_truncated(done_reason)
@@ -113,12 +210,7 @@ def chat_stream(req: ChatRequest):
     if not msg:
         raise HTTPException(status_code=400, detail="message vacío")
 
-    payload = {
-        "model": settings.ollama_model,
-        "prompt": build_prompt(msg),
-        "stream": True,
-        "options": {"num_predict": settings.num_predict, "temperature": 0.2},
-    }
+    payload = build_generate_payload(msg, stream=True)
 
     def event_stream() -> Generator[str, None, None]:
         accumulated = []
@@ -146,8 +238,19 @@ def chat_stream(req: ChatRequest):
 
                         if chunk.get("done"):
                             done_reason = chunk.get("done_reason")
+                            answer = "".join(accumulated)
                             took_ms = int((time.time() - t0) * 1000)
-                            append_log_event(req.user, took_ms, len(msg))
+                            truncated = is_truncated(done_reason)
+                            log_chat_event(
+                                endpoint="/chat/stream",
+                                user=req.user,
+                                prompt_chars=len(msg),
+                                took_ms=took_ms,
+                                answer_length=len(answer),
+                                truncated=truncated,
+                                done_reason=done_reason,
+                                error=None,
+                            )
                             yield (
                                 "data: "
                                 + json.dumps(
@@ -155,8 +258,8 @@ def chat_stream(req: ChatRequest):
                                         "done": True,
                                         "model": settings.ollama_model,
                                         "took_ms": took_ms,
-                                        "answer": "".join(accumulated),
-                                        "truncated": is_truncated(done_reason),
+                                        "answer": answer,
+                                        "truncated": truncated,
                                         "done_reason": done_reason,
                                     },
                                     ensure_ascii=False,
@@ -170,11 +273,23 @@ def chat_stream(req: ChatRequest):
                 if attempt < settings.ollama_retries:
                     time.sleep(0.5)
 
+        took_ms = int((time.time() - t0) * 1000)
+        error_msg = ollama_error_message(last_error)
+        log_chat_event(
+            endpoint="/chat/stream",
+            user=req.user,
+            prompt_chars=len(msg),
+            took_ms=took_ms,
+            answer_length=len("".join(accumulated)),
+            truncated=False,
+            done_reason=done_reason,
+            error=error_msg,
+        )
         yield (
             "data: "
             + json.dumps(
                 {
-                    "error": f"Error llamando a Ollama tras {settings.ollama_retries} intentos: {last_error}",
+                    "error": error_msg,
                 },
                 ensure_ascii=False,
             )
