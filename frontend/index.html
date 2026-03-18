@@ -6,209 +6,1187 @@
   <title>ITCOM AI Prototype</title>
   <style>
     :root {
-      --bg: #0b1020;
-      --panel: #121a33;
-      --panel-alt: #0f1730;
-      --border: #24305e;
-      --text: #e7eaf3;
-      --muted: #9aa6d1;
-      --accent: #4c7dff;
-      --danger: #ff9c9c;
-      --success: #95f0af;
-      --user-bubble: #24305e;
-      --assistant-bubble: #172343;
+      --bg: #050816;
+      --bg-deep: #03050d;
+      --bg-soft: #0b1120;
+      --surface: rgba(12, 19, 36, 0.82);
+      --surface-2: rgba(15, 24, 45, 0.92);
+      --surface-3: rgba(19, 30, 56, 0.9);
+      --surface-elevated: rgba(17, 24, 43, 0.86);
+      --border: rgba(142, 167, 230, 0.18);
+      --border-strong: rgba(124, 162, 255, 0.34);
+      --text: #edf2ff;
+      --muted: #9aa8cb;
+      --muted-2: #b6c3e8;
+      --accent: #67a6ff;
+      --accent-2: #7c65ff;
+      --warm: #ff9a5c;
+      --danger: #ff9d9d;
+      --success: #92eeb2;
+      --shadow-xl: 0 30px 90px rgba(0, 0, 0, 0.45);
+      --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.34);
+      --ring: 0 0 0 1px rgba(115, 150, 244, 0.2), 0 0 0 6px rgba(67, 115, 233, 0.12);
+      --blur: blur(18px);
+      --radius-xl: 30px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --space: 24px;
+      --user-bubble: linear-gradient(135deg, rgba(72, 114, 220, 0.42), rgba(90, 54, 192, 0.35));
+      --assistant-bubble: linear-gradient(135deg, rgba(18, 29, 57, 0.96), rgba(12, 18, 34, 0.96));
     }
 
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
-    .hidden { display: none !important; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 14%, rgba(75, 131, 255, 0.22), transparent 30%),
+        radial-gradient(circle at 82% 18%, rgba(255, 149, 84, 0.12), transparent 26%),
+        radial-gradient(circle at 72% 78%, rgba(78, 118, 255, 0.16), transparent 28%),
+        linear-gradient(180deg, #070a16 0%, #04070f 100%);
+      letter-spacing: 0.01em;
+    }
 
-    .page { min-height: 100vh; }
-    .auth-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
-    .auth-card { width: 100%; max-width: 520px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+    .background-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse at 26% 16%, rgba(90, 131, 255, 0.16), transparent 52%),
+        radial-gradient(ellipse at 82% 20%, rgba(255, 143, 67, 0.12), transparent 40%),
+        radial-gradient(ellipse at 60% 75%, rgba(70, 102, 224, 0.12), transparent 38%);
+      filter: blur(22px);
+      opacity: 0.95;
+    }
+
+    .grid-noise {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.6), transparent 92%);
+      opacity: 0.18;
+    }
+
+    .hidden { display: none !important; }
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      padding: 22px;
+    }
+
+    .floating-nav {
+      position: sticky;
+      top: 18px;
+      z-index: 30;
+      width: min(1320px, 100%);
+      margin: 0 auto 22px auto;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 20px;
+      padding: 14px 18px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(14, 20, 39, 0.8), rgba(9, 14, 28, 0.7));
+      backdrop-filter: var(--blur);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(90, 157, 255, 1), rgba(106, 91, 255, 1));
+      box-shadow: 0 0 28px rgba(84, 132, 255, 0.44);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent 55%);
+    }
+
+    .brand-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 0.98rem;
+      white-space: nowrap;
+    }
+
+    .brand-subtitle {
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+    }
+
+    .nav-links {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .nav-chip {
+      border: 1px solid rgba(135, 162, 225, 0.18);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(16, 24, 43, 0.5);
+      color: var(--muted-2);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .nav-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(130, 158, 224, 0.18);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(10, 16, 31, 0.7);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .nav-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #89c2ff, #4f84ff);
+      box-shadow: 0 0 14px rgba(79, 133, 255, 0.55);
+      flex: none;
+    }
+
+    .auth-shell {
+      width: min(1320px, 100%);
+      margin: 0 auto;
+      min-height: calc(100vh - 136px);
+      display: grid;
+      align-items: center;
+    }
+
+    .auth-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1.18fr) minmax(360px, 430px);
+      gap: 24px;
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      background: linear-gradient(180deg, rgba(10, 15, 29, 0.84), rgba(8, 12, 24, 0.78));
+      backdrop-filter: var(--blur);
+      box-shadow: var(--shadow-xl);
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .auth-card::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      background: linear-gradient(135deg, rgba(94, 135, 255, 0.18), transparent 28%, transparent 72%, rgba(255, 151, 92, 0.12));
+      z-index: -1;
+    }
+
+    .hero-panel {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 24px;
+      padding: 18px 10px 18px 4px;
+      min-width: 0;
+    }
+
+    .hero-kicker {
+      display: inline-flex;
+      align-self: flex-start;
+      border: 1px solid rgba(125, 158, 245, 0.24);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(17, 28, 52, 0.62);
+      color: #a8c0ff;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .hero-title {
+      margin: 0;
+      max-width: 11ch;
+      font-size: clamp(2.7rem, 6vw, 5.5rem);
+      line-height: 0.94;
+      letter-spacing: -0.04em;
+      font-weight: 900;
+    }
+
+    .hero-title .accent {
+      display: block;
+      background: linear-gradient(120deg, #6fb5ff, #a58dff 55%, #ffab73);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero-copy {
+      max-width: 62ch;
+      margin: 0;
+      color: var(--muted-2);
+      line-height: 1.7;
+      font-size: 1.02rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hero-pills {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hero-pill {
+      border: 1px solid rgba(131, 159, 224, 0.18);
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: rgba(14, 22, 42, 0.7);
+      color: #c9d8ff;
+      font-size: 0.82rem;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 0.95fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .stat,
+    .hero-insight,
+    .workspace-stat,
+    .quick-card {
+      border: 1px solid rgba(132, 160, 226, 0.16);
+      border-radius: var(--radius-md);
+      background: linear-gradient(180deg, rgba(18, 28, 51, 0.84), rgba(13, 20, 38, 0.84));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    .stat {
+      padding: 18px;
+      min-height: 124px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .stat-label,
+    .eyebrow {
+      color: #93a5d0;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .stat strong,
+    .hero-insight strong,
+    .workspace-stat strong,
+    .quick-card strong {
+      display: block;
+      font-size: 1.18rem;
+      line-height: 1.1;
+    }
+
+    .stat span,
+    .hero-insight span,
+    .workspace-stat span,
+    .quick-card span {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .hero-insight {
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 100%;
+    }
+
+    .hero-insight::before {
+      content: "";
+      position: absolute;
+      inset: auto -40px -50px auto;
+      width: 150px;
+      height: 150px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(255, 149, 84, 0.3), transparent 64%);
+      filter: blur(8px);
+    }
+
+    .hero-insight ul {
+      margin: 14px 0 0 0;
+      padding-left: 18px;
+      color: var(--muted-2);
+      line-height: 1.7;
+      font-size: 0.92rem;
+    }
+
+    .auth-form {
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 24px;
+      border: 1px solid rgba(132, 160, 226, 0.16);
+      border-radius: calc(var(--radius-lg) + 2px);
+      background: linear-gradient(180deg, rgba(14, 21, 39, 0.94), rgba(9, 14, 27, 0.92));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      min-width: 0;
+    }
+
+    .auth-form-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .auth-form h2,
+    .panel h4,
+    .sidebar-block-title,
+    .sidebar-title,
+    .workspace-title {
+      margin: 0;
+    }
+
+    .auth-form-sub {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .mini-badge {
+      border: 1px solid rgba(132, 160, 226, 0.18);
+      border-radius: 999px;
+      padding: 8px 10px;
+      background: rgba(18, 28, 51, 0.72);
+      color: #b9cbff;
+      font-size: 0.76rem;
+      white-space: nowrap;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field-group label {
+      font-size: 0.82rem;
+      color: var(--muted-2);
+    }
+
+    .auth-footnote {
+      margin-top: auto;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
 
     .app-shell {
-      height: 100vh;
+      width: min(1320px, 100%);
+      margin: 0 auto;
+      min-height: calc(100vh - 136px);
       display: grid;
-      grid-template-columns: 300px 1fr;
-      gap: 12px;
-      padding: 12px;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .sidebar,
+    .main {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(180deg, rgba(10, 16, 30, 0.9), rgba(7, 12, 24, 0.84));
+      backdrop-filter: var(--blur);
+      box-shadow: var(--shadow-lg);
+      min-height: 0;
+      overflow: hidden;
     }
 
     .sidebar {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
       display: flex;
       flex-direction: column;
-      min-height: 0;
-      overflow: hidden;
+      position: relative;
     }
 
-    .main {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
+    .sidebar::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(78, 124, 241, 0.08), transparent 26%, transparent 70%, rgba(255, 155, 92, 0.06));
+    }
+
+    .sidebar-header,
+    .sidebar-user {
+      position: relative;
+      z-index: 1;
+      padding: 18px;
+      border-bottom: 1px solid rgba(128, 155, 220, 0.12);
+    }
+
+    .sidebar-header {
       display: flex;
       flex-direction: column;
-      min-height: 0;
-      overflow: hidden;
+      gap: 16px;
     }
 
-    .sidebar-header, .sidebar-user { padding: 12px; border-bottom: 1px solid var(--border); }
-    .sidebar-user { border-top: 1px solid var(--border); border-bottom: 0; margin-top: auto; background: var(--panel-alt); }
-
-    .chat-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-    .chat-item {
-      border: 1px solid var(--border);
-      background: var(--panel-alt);
-      border-radius: 10px;
-      padding: 8px;
-      cursor: pointer;
-      text-align: left;
-      color: var(--text);
-      width: 100%;
+    .sidebar-user {
+      border-top: 1px solid rgba(128, 155, 220, 0.12);
+      border-bottom: 0;
+      margin-top: auto;
+      background: rgba(12, 18, 34, 0.72);
     }
-    .chat-item.active { border-color: var(--accent); background: #1a2952; }
-    .chat-item-title { font-size: 0.9rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .chat-item-date { color: var(--muted); font-size: 0.75rem; }
-    .chat-item-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .chat-item-actions { display: flex; gap: 4px; }
-    .chat-action {
-      border: 1px solid var(--border);
-      background: transparent;
+
+    .sidebar-topline,
+    .workspace-topline {
       color: var(--muted);
-      border-radius: 7px;
-      padding: 2px 6px;
-      font-size: 0.72rem;
-      line-height: 1.2;
-      cursor: pointer;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
     }
-    .chat-action:hover { color: var(--text); border-color: var(--accent); }
 
-    .messages {
+    .sidebar-block-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .sidebar-block-copy {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .chat-list {
+      position: relative;
+      z-index: 1;
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
       gap: 10px;
+    }
+
+    .chat-item {
+      width: 100%;
+      text-align: left;
+      border: 1px solid rgba(128, 155, 220, 0.16);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      background: linear-gradient(180deg, rgba(16, 26, 49, 0.82), rgba(11, 18, 34, 0.82));
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .chat-item:hover {
+      transform: translateY(-1px);
+      border-color: rgba(111, 155, 255, 0.52);
+      box-shadow: 0 10px 26px rgba(0,0,0,0.18);
+    }
+
+    .chat-item.active {
+      border-color: rgba(111, 155, 255, 0.92);
+      background: linear-gradient(180deg, rgba(31, 47, 90, 0.96), rgba(17, 28, 53, 0.96));
+      box-shadow: inset 0 0 0 1px rgba(98, 140, 255, 0.2), 0 10px 26px rgba(0,0,0,0.22);
+    }
+
+    .chat-item-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .chat-item-title {
+      display: block;
+      font-size: 0.92rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .chat-item-date {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .chat-item-actions {
+      display: flex;
+      gap: 6px;
+      flex: none;
+    }
+
+    .chat-action {
+      border: 1px solid rgba(126, 153, 225, 0.18);
+      background: rgba(7, 12, 24, 0.76);
+      color: var(--muted);
+      border-radius: 10px;
+      padding: 4px 7px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .chat-action:hover {
+      color: var(--text);
+      border-color: rgba(103, 166, 255, 0.52);
+      background: rgba(18, 28, 51, 0.94);
+    }
+
+    .sidebar-user-card {
+      border: 1px solid rgba(129, 155, 220, 0.16);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      background: rgba(15, 24, 45, 0.74);
+    }
+
+    .session-user {
+      font-weight: 800;
+      margin: 4px 0 12px 0;
+      font-size: 1rem;
+    }
+
+    .main {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+    }
+
+    .workspace-hero {
+      position: relative;
+      padding: 22px 24px 18px 24px;
+      border-bottom: 1px solid rgba(129, 155, 220, 0.12);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(95, 144, 255, 0.16), transparent 34%),
+        radial-gradient(circle at 92% 10%, rgba(255, 160, 100, 0.1), transparent 30%),
+        linear-gradient(180deg, rgba(17, 25, 47, 0.96), rgba(11, 18, 33, 0.92));
+      overflow: hidden;
+    }
+
+    .workspace-hero::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -20px;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(98, 146, 255, 0.18), transparent 64%);
+      filter: blur(6px);
+    }
+
+    .workspace-head {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .workspace-title {
+      font-size: clamp(1.7rem, 2.4vw, 2.3rem);
+      font-weight: 850;
+      letter-spacing: -0.03em;
+    }
+
+    .workspace-sub {
+      margin: 8px 0 0 0;
+      max-width: 68ch;
+      color: var(--muted-2);
+      font-size: 0.96rem;
+      line-height: 1.7;
+    }
+
+    .workspace-badge-stack {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .workspace-badge {
+      border: 1px solid rgba(131, 159, 224, 0.2);
+      border-radius: 999px;
+      padding: 9px 12px;
+      background: rgba(12, 18, 34, 0.62);
+      color: #bed0ff;
+      font-size: 0.78rem;
+    }
+
+    .workspace-stats,
+    .quick-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .workspace-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      position: relative;
+      z-index: 1;
+    }
+
+    .workspace-stat {
+      padding: 16px;
+      min-height: 118px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .workspace-quickbar {
+      padding: 14px 24px;
+      border-bottom: 1px solid rgba(129, 155, 220, 0.12);
+      background: rgba(10, 16, 30, 0.78);
+    }
+
+    .quick-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .quick-card {
+      padding: 14px 16px;
+      min-height: 96px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .messages {
       min-height: 0;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background:
+        linear-gradient(180deg, rgba(7, 12, 24, 0.18), transparent 15%),
+        rgba(6, 10, 19, 0.24);
     }
 
     .message {
       max-width: min(78%, 860px);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px 12px;
+      border: 1px solid rgba(126, 153, 225, 0.18);
+      border-radius: 18px;
+      padding: 14px 16px;
       white-space: pre-wrap;
-      line-height: 1.45;
+      line-height: 1.58;
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
     }
-    .message.user { align-self: flex-end; background: var(--user-bubble); }
-    .message.assistant { align-self: flex-start; background: var(--assistant-bubble); }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--user-bubble);
+      border-bottom-right-radius: 6px;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      background: var(--assistant-bubble);
+      border-bottom-left-radius: 6px;
+    }
 
     .composer {
-      border-top: 1px solid var(--border);
-      padding: 12px;
-      background: var(--panel-alt);
+      padding: 18px 20px 20px 20px;
+      border-top: 1px solid rgba(129, 155, 220, 0.12);
+      background: linear-gradient(180deg, rgba(11, 18, 34, 0.96), rgba(8, 14, 28, 0.94));
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 14px;
+    }
+
+    .composer-shell {
+      border: 1px solid rgba(129, 155, 220, 0.16);
+      border-radius: 20px;
+      background: rgba(10, 16, 31, 0.84);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .composer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .composer-title {
+      font-size: 0.86rem;
+      color: #c0cff2;
+      font-weight: 700;
     }
 
     .composer-controls {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .composer-actions {
+      display: flex;
       gap: 10px;
       flex-wrap: wrap;
     }
 
-    .composer-actions { display: flex; gap: 8px; }
+    .composer-hint {
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.01em;
+    }
+
+    .composer-hint kbd {
+      border: 1px solid rgba(126, 153, 225, 0.24);
+      border-bottom-width: 2px;
+      border-radius: 7px;
+      padding: 2px 6px;
+      background: rgba(14, 23, 45, 0.94);
+      color: #d7e2ff;
+      font-size: 0.72rem;
+      font-family: inherit;
+    }
 
     .status-badge {
       font-size: 0.8rem;
-      border: 1px solid var(--border);
+      border: 1px solid rgba(126, 153, 225, 0.24);
       border-radius: 999px;
-      padding: 4px 8px;
+      padding: 5px 10px;
       color: var(--muted);
-      background: rgba(23, 35, 67, 0.7);
+      background: rgba(18, 28, 51, 0.88);
     }
 
-    textarea, input {
+    textarea,
+    input {
       width: 100%;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      padding: 10px;
-      background: var(--bg);
+      border: 1px solid rgba(126, 153, 225, 0.18);
+      border-radius: 14px;
+      padding: 13px 14px;
+      background: rgba(8, 13, 27, 0.88);
       color: var(--text);
       font: inherit;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease;
     }
-    textarea { min-height: 56px; max-height: 220px; resize: none; overflow-y: hidden; }
+
+    textarea::placeholder,
+    input::placeholder {
+      color: #7182ab;
+    }
+
+    textarea:focus,
+    input:focus {
+      outline: none;
+      border-color: rgba(106, 154, 255, 0.94);
+      box-shadow: var(--ring);
+      background: rgba(10, 16, 31, 0.96);
+    }
+
+    textarea {
+      min-height: 116px;
+      max-height: 260px;
+      resize: none;
+      overflow-y: hidden;
+    }
 
     button {
-      border: 0;
-      border-radius: 10px;
-      padding: 10px 12px;
-      background: var(--accent);
+      border: 1px solid rgba(126, 153, 225, 0.18);
+      border-radius: 14px;
+      padding: 11px 16px;
+      background: linear-gradient(135deg, #5d9cff, #6579ff 58%, #7d65ff);
       color: white;
       cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      transition: transform 0.18s ease, filter 0.18s ease, opacity 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 12px 28px rgba(70, 102, 224, 0.22);
     }
-    button.secondary { background: #24305e; }
-    button.ghost { background: transparent; border: 1px solid #3952a3; }
-    button.danger { background: #8b2f46; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.04);
+    }
+
+    button.secondary {
+      background: linear-gradient(180deg, rgba(34, 52, 96, 0.94), rgba(26, 40, 75, 0.94));
+      box-shadow: none;
+    }
+
+    button.ghost {
+      background: rgba(11, 18, 34, 0.56);
+      border-color: rgba(124, 162, 255, 0.26);
+      color: #d8e3ff;
+      box-shadow: none;
+    }
+
+    button.danger {
+      background: linear-gradient(135deg, #8e324e, #aa4866);
+      box-shadow: 0 12px 26px rgba(123, 40, 68, 0.24);
+    }
+
+    button:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+      transform: none;
+      filter: none;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
     .between { justify-content: space-between; }
     .muted { color: var(--muted); }
     .error { color: var(--danger); }
     .success { color: var(--success); }
 
-    .panel { margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #111b37; }
+    .panel {
+      margin-top: 4px;
+      border: 1px solid rgba(126, 153, 225, 0.16);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      background: rgba(12, 20, 39, 0.78);
+    }
+
+    .panel-copy {
+      margin: 6px 0 12px 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 1180px) {
+      .auth-card {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-title {
+        max-width: 13ch;
+      }
+
+      .hero-grid,
+      .workspace-stats,
+      .quick-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
 
     @media (max-width: 980px) {
-      .app-shell { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
-      .sidebar { min-height: 280px; }
-      .main { min-height: calc(100vh - 330px); }
-      .message { max-width: 92%; }
+      .page {
+        padding: 16px;
+      }
+
+      .floating-nav {
+        position: static;
+        grid-template-columns: 1fr;
+        justify-items: stretch;
+        border-radius: 24px;
+      }
+
+      .nav-links,
+      .workspace-badge-stack {
+        justify-content: flex-start;
+      }
+
+      .auth-shell,
+      .app-shell {
+        min-height: auto;
+      }
+
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        min-height: 360px;
+      }
+
+      .main {
+        min-height: 760px;
+      }
+
+      .workspace-head {
+        flex-direction: column;
+      }
+
+      .messages {
+        padding: 18px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        overflow: auto;
+      }
+
+      .page {
+        padding: 12px;
+      }
+
+      .auth-card,
+      .auth-form,
+      .workspace-hero,
+      .workspace-quickbar,
+      .composer,
+      .sidebar-header,
+      .sidebar-user {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      .hero-title {
+        font-size: clamp(2.3rem, 11vw, 4rem);
+        max-width: 100%;
+      }
+
+      .hero-grid,
+      .hero-stats,
+      .workspace-stats,
+      .quick-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .message {
+        max-width: 100%;
+      }
+
+      .chat-item-head,
+      .composer-controls,
+      .composer-head,
+      .row.between {
+        align-items: flex-start;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      .hero-actions button,
+      .composer-actions button,
+      .sidebar .row button,
+      .auth-form .row button,
+      .panel .row button {
+        flex: 1 1 100%;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="background-glow"></div>
+  <div class="grid-noise"></div>
   <div id="page" class="page">
+    <div class="floating-nav">
+      <div class="brand">
+        <div class="brand-mark"></div>
+        <div class="brand-copy">
+          <span class="brand-title">ITCOM AI Proto</span>
+          <span class="brand-subtitle">Enterprise AI Workspace</span>
+        </div>
+      </div>
+      <div class="nav-links">
+        <span class="nav-chip">Copilot empresarial</span>
+        <span class="nav-chip">Integraciones internas</span>
+        <span class="nav-chip">Analytics operacional</span>
+      </div>
+      <div class="nav-status">
+        <span class="nav-status-dot"></span>
+        <span>Backend: <span id="api"></span></span>
+      </div>
+    </div>
+
     <div id="authShell" class="auth-shell">
       <div class="auth-card">
-        <h2 style="margin:0;">ITCOM AI Prototype</h2>
-        <small class="muted">Backend: <span id="api"></span></small>
-        <input id="username" placeholder="Usuario" />
-        <input id="password" type="password" placeholder="Contraseña" />
-        <div class="row">
-          <button type="button" onclick="login()">Iniciar sesión</button>
-          <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
-        </div>
-        <small id="authMeta" class="muted"></small>
-        <small id="authError" class="error"></small>
-
-        <div id="signupPanel" class="panel hidden">
-          <h4 style="margin:0 0 8px 0;">Crear cuenta</h4>
-          <input id="signupUsername" placeholder="Nuevo usuario" />
-          <input id="signupPassword" type="password" placeholder="Contraseña" />
-          <input id="signupConfirmPassword" type="password" placeholder="Confirmar contraseña" />
-          <div class="row">
-            <button type="button" onclick="signup()">Registrar</button>
-            <button type="button" class="ghost" onclick="toggleSignup(false)">Cancelar</button>
+        <section class="hero-panel">
+          <div class="hero-kicker">AI Platform • Productivity Layer</div>
+          <div>
+            <h1 class="hero-title">Your internal operations,<span class="accent"> clarified by AI.</span></h1>
+            <p class="hero-copy">ITCOM AI convierte el workspace interno en una consola premium para consulta ejecutiva, seguimiento operativo y colaboración con contexto persistente. Mantiene una experiencia enterprise clara, rápida y gobernable sin alterar tu flujo actual.</p>
           </div>
-          <small id="signupFeedback"></small>
-        </div>
+
+          <div class="hero-actions">
+            <button type="button" onclick="login()">Acceder al workspace</button>
+            <button type="button" class="ghost" onclick="toggleSignup(true)">Crear cuenta</button>
+          </div>
+
+          <div class="hero-pills">
+            <span class="hero-pill">Seguridad y sesiones persistentes</span>
+            <span class="hero-pill">Contexto por conversación</span>
+            <span class="hero-pill">Streaming y trazabilidad operativa</span>
+          </div>
+
+          <div class="hero-grid">
+            <div class="hero-stats">
+              <article class="stat">
+                <span class="stat-label">Disponibilidad</span>
+                <strong>99.9%</strong>
+                <span>Superficies enfocadas en continuidad operativa y respuesta inmediata.</span>
+              </article>
+              <article class="stat">
+                <span class="stat-label">Respuesta</span>
+                <strong>&lt; 1 min</strong>
+                <span>Interacciones rápidas con historial, streaming y controles claros.</span>
+              </article>
+              <article class="stat">
+                <span class="stat-label">Cobertura</span>
+                <strong>+12 flujos</strong>
+                <span>Base visual lista para escenarios internos de consulta y seguimiento.</span>
+              </article>
+            </div>
+            <aside class="hero-insight">
+              <div>
+                <span class="eyebrow">Operational insight</span>
+                <strong>Un solo workspace para autenticación, conversación y continuidad.</strong>
+                <span>El rediseño consolida jerarquía visual, superficies glass premium y estados consistentes para desktop, tablet y mobile.</span>
+              </div>
+              <ul>
+                <li>Navbar premium flotante con glass effect.</li>
+                <li>Hero dominante centrado con CTA principal y secundario.</li>
+                <li>Cards y formularios oscuros con spacing y radios consistentes.</li>
+              </ul>
+            </aside>
+          </div>
+        </section>
+
+        <section class="auth-form">
+          <div class="auth-form-head">
+            <div>
+              <h2 style="font-size:1.35rem; font-weight:800;">Iniciar sesión</h2>
+              <div class="auth-form-sub">Accede al entorno conversacional premium manteniendo toda la funcionalidad de autenticación, signup y cambio de contraseña.</div>
+            </div>
+            <span class="mini-badge">Secure access</span>
+          </div>
+
+          <div class="field-group">
+            <label for="username">Usuario</label>
+            <input id="username" placeholder="Usuario" />
+          </div>
+          <div class="field-group">
+            <label for="password">Contraseña</label>
+            <input id="password" type="password" placeholder="Contraseña" />
+          </div>
+          <div class="row">
+            <button type="button" onclick="login()">Iniciar sesión</button>
+            <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
+          </div>
+          <small id="authMeta" class="muted"></small>
+          <small id="authError" class="error"></small>
+
+          <div id="signupPanel" class="panel hidden">
+            <h4>Crear cuenta</h4>
+            <p class="panel-copy">Registra un nuevo usuario manteniendo el flujo actual del demo y la persistencia local configurada en backend.</p>
+            <div class="field-group">
+              <label for="signupUsername">Nuevo usuario</label>
+              <input id="signupUsername" placeholder="Nuevo usuario" />
+            </div>
+            <div class="field-group">
+              <label for="signupPassword">Contraseña</label>
+              <input id="signupPassword" type="password" placeholder="Contraseña" />
+            </div>
+            <div class="field-group">
+              <label for="signupConfirmPassword">Confirmar contraseña</label>
+              <input id="signupConfirmPassword" type="password" placeholder="Confirmar contraseña" />
+            </div>
+            <div class="row">
+              <button type="button" onclick="signup()">Registrar</button>
+              <button type="button" class="ghost" onclick="toggleSignup(false)">Cancelar</button>
+            </div>
+            <small id="signupFeedback"></small>
+          </div>
+
+          <div class="auth-footnote">UX premium, mismas rutas, mismos IDs y mismo flujo funcional para login, signup y sesión persistente.</div>
+        </section>
       </div>
     </div>
 
     <div id="appShell" class="app-shell hidden">
       <aside class="sidebar">
         <div class="sidebar-header">
+          <div>
+            <div class="sidebar-topline">Conversation hub</div>
+            <div class="sidebar-block-title">Conversaciones</div>
+            <p class="sidebar-block-copy">Administra contexto, continuidad y organización del historial sin romper las acciones actuales del demo.</p>
+          </div>
           <div class="row between">
-            <strong>Historial</strong>
             <button type="button" onclick="createNewChat(true)">Nuevo chat</button>
           </div>
         </div>
@@ -216,18 +1194,30 @@
         <div id="chatList" class="chat-list"></div>
 
         <div class="sidebar-user">
-          <small class="muted">Usuario</small>
-          <div id="sessionUser" style="font-weight:700; margin:4px 0 8px 0;"></div>
-          <div class="row">
-            <button type="button" class="secondary" onclick="toggleChangePassword(true)">Cambiar contraseña</button>
-            <button type="button" class="ghost" onclick="logout()">Cerrar sesión</button>
+          <div class="sidebar-user-card">
+            <small class="muted">Usuario activo</small>
+            <div id="sessionUser" class="session-user"></div>
+            <div class="row">
+              <button type="button" class="secondary" onclick="toggleChangePassword(true)">Cambiar contraseña</button>
+              <button type="button" class="ghost" onclick="logout()">Cerrar sesión</button>
+            </div>
           </div>
 
           <div id="changePasswordPanel" class="panel hidden">
-            <h4 style="margin:0 0 8px 0;">Cambiar contraseña</h4>
-            <input id="currentPassword" type="password" placeholder="Contraseña actual" />
-            <input id="newPassword" type="password" placeholder="Nueva contraseña" />
-            <input id="confirmNewPassword" type="password" placeholder="Confirmar nueva contraseña" />
+            <h4>Cambiar contraseña</h4>
+            <p class="panel-copy">Actualiza las credenciales conservando el comportamiento de seguridad ya existente.</p>
+            <div class="field-group">
+              <label for="currentPassword">Contraseña actual</label>
+              <input id="currentPassword" type="password" placeholder="Contraseña actual" />
+            </div>
+            <div class="field-group">
+              <label for="newPassword">Nueva contraseña</label>
+              <input id="newPassword" type="password" placeholder="Nueva contraseña" />
+            </div>
+            <div class="field-group">
+              <label for="confirmNewPassword">Confirmar nueva contraseña</label>
+              <input id="confirmNewPassword" type="password" placeholder="Confirmar nueva contraseña" />
+            </div>
             <div class="row">
               <button type="button" onclick="changePassword()">Guardar</button>
               <button type="button" class="ghost" onclick="toggleChangePassword(false)">Cancelar</button>
@@ -238,26 +1228,87 @@
       </aside>
 
       <section class="main">
+        <div class="workspace-hero">
+          <div class="workspace-head">
+            <div>
+              <div class="workspace-topline">AI command center</div>
+              <h3 class="workspace-title">Productivity AI Console</h3>
+              <p class="workspace-sub">Conversa con tu asistente empresarial en una interfaz más sólida, con mejor jerarquía visual, mejor foco en contenido y un sistema coherente de superficies, estados y espaciado.</p>
+            </div>
+            <div class="workspace-badge-stack">
+              <span class="workspace-badge">Contexto persistente</span>
+              <span class="workspace-badge">Streaming SSE</span>
+              <span class="workspace-badge">UX enterprise ready</span>
+            </div>
+          </div>
+          <div class="workspace-stats">
+            <article class="workspace-stat">
+              <span class="eyebrow">Workspace</span>
+              <strong>Historial inteligente</strong>
+              <span>Cada conversación mantiene continuidad y se presenta con una estructura premium más clara.</span>
+            </article>
+            <article class="workspace-stat">
+              <span class="eyebrow">Delivery</span>
+              <strong>Streaming en vivo</strong>
+              <span>Respuesta token a token con feedback visual y controles más consistentes.</span>
+            </article>
+            <article class="workspace-stat">
+              <span class="eyebrow">Control</span>
+              <strong>Gestión total</strong>
+              <span>Renombrar, eliminar y organizar chats sin tocar los hooks existentes.</span>
+            </article>
+          </div>
+        </div>
+
+        <div class="workspace-quickbar">
+          <div class="quick-grid">
+            <article class="quick-card">
+              <span class="eyebrow">UI system</span>
+              <strong>Spacing consistente</strong>
+              <span>Radios, bordes, sombras y contraste unificados en toda la experiencia.</span>
+            </article>
+            <article class="quick-card">
+              <span class="eyebrow">Usabilidad</span>
+              <strong>Composer refinado</strong>
+              <span>Área de entrada más amplia y clara para prompts largos o iterativos.</span>
+            </article>
+            <article class="quick-card">
+              <span class="eyebrow">Responsive</span>
+              <strong>Desktop a mobile</strong>
+              <span>Layout fluido que conserva jerarquía y controles en pantallas pequeñas.</span>
+            </article>
+          </div>
+        </div>
+
         <div id="messages" class="messages"></div>
 
         <div class="composer">
-          <textarea id="msg" placeholder="Escribe tu mensaje..."></textarea>
-          <div class="composer-controls">
-            <div class="row" style="gap:10px;">
-              <label class="muted"><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
+          <div class="composer-shell">
+            <div class="composer-head">
+              <div>
+                <div class="composer-title">Mensaje para tu asistente</div>
+                <small class="muted">Mantén el contexto del chat activo y decide si deseas streaming SSE.</small>
+              </div>
               <small id="composerStatus" class="status-badge hidden">Respondiendo...</small>
-              <small id="meta" class="muted"></small>
             </div>
-            <div class="composer-actions">
-              <button id="stopBtn" type="button" class="danger hidden" onclick="stopStreaming()">Detener</button>
-              <button id="sendBtn" type="button" onclick="sendMessage()">Enviar</button>
+            <label class="sr-only" for="msg">Escribe tu mensaje</label>
+            <textarea id="msg" placeholder="Escribe tu mensaje..."></textarea>
+            <div class="composer-controls">
+              <div class="row" style="gap:10px;">
+                <label class="muted"><input id="streaming" type="checkbox" checked /> Streaming SSE</label>
+                <small id="meta" class="muted"></small>
+                <small class="composer-hint"><kbd>Enter</kbd> enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> salto</small>
+              </div>
+              <div class="composer-actions">
+                <button id="stopBtn" type="button" class="danger hidden" onclick="stopStreaming()">Detener</button>
+                <button id="sendBtn" type="button" onclick="sendMessage()">Enviar</button>
+              </div>
             </div>
           </div>
         </div>
       </section>
     </div>
   </div>
-
 <script>
 const API_BASE = "/api";
 const TOKEN_KEY = "itcom_auth_token";
@@ -316,7 +1367,40 @@ function safeStorageRemove(key) {
     localStorage.removeItem(key);
   } catch {}
 }
-  function setFeedback(el, text, isError = false) {
+
+function getToken() {
+  return safeStorageGet(TOKEN_KEY) || "";
+}
+
+
+let conversations = [];
+let activeChatId = null;
+let isSending = false;
+let isStreaming = false;
+let currentAbortController = null;
+let activeStreamingChatId = null;
+let activeStreamingMessageId = null;
+
+function safeStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
+function safeStorageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+function setFeedback(el, text, isError = false) {
   el.className = isError ? "error" : "success";
   el.innerText = text;
 }
