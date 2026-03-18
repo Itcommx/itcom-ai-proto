@@ -1002,7 +1002,6 @@ function getToken() {
   return safeStorageGet(TOKEN_KEY) || "";
 }
 
-HEAD
 
 function setFeedback(el, text, isError = false) {
   el.className = isError ? "error" : "success";
