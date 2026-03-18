@@ -961,7 +961,6 @@ const changePasswordPanelEl = document.getElementById("changePasswordPanel");
 const changePasswordFeedbackEl = document.getElementById("changePasswordFeedback");
 const chatListEl = document.getElementById("chatList");
 const messagesEl = document.getElementById("messages");
-const metaEl = document.getElementById("meta");
 const msgEl = document.getElementById("msg");
 const metaEl = document.getElementById("meta");
 const sendBtnEl = document.getElementById("sendBtn");
@@ -1570,7 +1569,6 @@ function parseSseEvents(raw, onToken, onDone, onError) {
       if (data.done) onDone(data);
     } catch {}
   }
-};
 
   return remain;
 }
