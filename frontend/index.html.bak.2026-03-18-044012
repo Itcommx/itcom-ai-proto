@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Symbiotix</title>
+  <title>ITCOM AI Prototype</title>
   <style>
     :root {
       --bg: #050816;
@@ -135,7 +135,6 @@
       flex-direction: column;
       gap: 2px;
       min-width: 0;
-      align-items: flex-start;
     }
 
     .brand-title {
@@ -250,18 +249,6 @@
       max-width: 32ch;
     }
 
-    .auth-actions {
-      justify-content: center;
-      gap: 12px;
-      margin-top: 4px;
-    }
-
-    .auth-actions button {
-      min-width: 168px;
-      width: auto;
-      flex: 0 1 auto;
-    }
-
     .field-group {
       display: flex;
       flex-direction: column;
@@ -316,10 +303,8 @@
 
     .sidebar-header {
       display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 12px;
-      min-height: 78px;
+      flex-direction: column;
+      gap: 16px;
     }
 
     .sidebar-user {
@@ -446,13 +431,116 @@
 
     .main {
       display: grid;
-      grid-template-rows: minmax(0, 1fr) auto;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+    }
+
+    .workspace-hero {
+      position: relative;
+      padding: 22px 24px 18px 24px;
+      border-bottom: 1px solid rgba(129, 155, 220, 0.12);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(95, 144, 255, 0.16), transparent 34%),
+        radial-gradient(circle at 92% 10%, rgba(255, 160, 100, 0.1), transparent 30%),
+        linear-gradient(180deg, rgba(17, 25, 47, 0.96), rgba(11, 18, 33, 0.92));
+      overflow: hidden;
+    }
+
+    .workspace-hero::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -20px;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(98, 146, 255, 0.18), transparent 64%);
+      filter: blur(6px);
+    }
+
+    .workspace-head {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .workspace-title {
+      font-size: clamp(1.7rem, 2.4vw, 2.3rem);
+      font-weight: 850;
+      letter-spacing: -0.03em;
+    }
+
+    .workspace-sub {
+      margin: 8px 0 0 0;
+      max-width: 68ch;
+      color: var(--muted-2);
+      font-size: 0.96rem;
+      line-height: 1.7;
+    }
+
+    .workspace-badge-stack {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .workspace-badge {
+      border: 1px solid rgba(131, 159, 224, 0.2);
+      border-radius: 999px;
+      padding: 9px 12px;
+      background: rgba(12, 18, 34, 0.62);
+      color: #bed0ff;
+      font-size: 0.78rem;
+    }
+
+    .workspace-stats,
+    .quick-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .workspace-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      position: relative;
+      z-index: 1;
+    }
+
+    .workspace-stat {
+      padding: 16px;
+      min-height: 118px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .workspace-quickbar {
+      padding: 14px 24px;
+      border-bottom: 1px solid rgba(129, 155, 220, 0.12);
+      background: rgba(10, 16, 30, 0.78);
+    }
+
+    .quick-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .quick-card {
+      padding: 14px 16px;
+      min-height: 96px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
     }
 
     .messages {
       min-height: 0;
       overflow-y: auto;
-      padding: 18px 20px 20px 20px;
+      padding: 24px;
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -484,7 +572,7 @@
     }
 
     .composer {
-      padding: 14px 18px 18px 18px;
+      padding: 18px 20px 20px 20px;
       border-top: 1px solid rgba(129, 155, 220, 0.12);
       background: linear-gradient(180deg, rgba(11, 18, 34, 0.96), rgba(8, 14, 28, 0.94));
       display: flex;
@@ -779,15 +867,6 @@
       .panel .row button {
         flex: 1 1 100%;
       }
-
-      .auth-actions {
-        width: 100%;
-      }
-
-      .auth-actions button {
-        min-width: 0;
-        width: 100%;
-      }
     }
   </style>
 </head>
@@ -816,7 +895,7 @@
             <span class="auth-kicker">Secure access</span>
             <div>
               <h2 style="font-size:1.5rem; font-weight:800;">Iniciar sesión</h2>
-              <div class="auth-form-sub">Accede a Symbiotix.</div>
+              <div class="auth-form-sub">Accede a ITCOM AI Proto desde una pantalla de acceso más limpia, sobria y centrada, manteniendo intacta toda la funcionalidad actual.</div>
             </div>
           </div>
 
@@ -828,7 +907,7 @@
             <label for="password">Contraseña</label>
             <input id="password" type="password" placeholder="Contraseña" />
           </div>
-          <div class="row auth-actions">
+          <div class="row">
             <button type="button" onclick="login()">Iniciar sesión</button>
             <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
           </div>
@@ -837,7 +916,7 @@
 
           <div id="signupPanel" class="panel hidden">
             <h4>Crear cuenta</h4>
-            <p class="panel-copy">Registra un nuevo usuario.</p>
+            <p class="panel-copy">Registra un nuevo usuario manteniendo el flujo actual del demo y la persistencia local configurada en backend.</p>
             <div class="field-group">
               <label for="signupUsername">Nuevo usuario</label>
               <input id="signupUsername" placeholder="Nuevo usuario" />
@@ -867,6 +946,7 @@
           <div>
             <div class="sidebar-topline">Conversation hub</div>
             <div class="sidebar-block-title">Conversaciones</div>
+            <p class="sidebar-block-copy">Administra contexto, continuidad y organización del historial sin romper las acciones actuales del demo.</p>
           </div>
           <div class="row between">
             <button type="button" onclick="createNewChat(true)">Nuevo chat</button>
@@ -887,7 +967,7 @@
 
           <div id="changePasswordPanel" class="panel hidden">
             <h4>Cambiar contraseña</h4>
-            <p class="panel-copy">Actualiza las credenciales.</p>
+            <p class="panel-copy">Actualiza las credenciales conservando el comportamiento de seguridad ya existente.</p>
             <div class="field-group">
               <label for="currentPassword">Contraseña actual</label>
               <input id="currentPassword" type="password" placeholder="Contraseña actual" />
@@ -910,6 +990,58 @@
       </aside>
 
       <section class="main">
+        <div class="workspace-hero">
+          <div class="workspace-head">
+            <div>
+              <div class="workspace-topline">AI command center</div>
+              <h3 class="workspace-title">Productivity AI Console</h3>
+              <p class="workspace-sub">Conversa con tu asistente empresarial en una interfaz más sólida, con mejor jerarquía visual, mejor foco en contenido y un sistema coherente de superficies, estados y espaciado.</p>
+            </div>
+            <div class="workspace-badge-stack">
+              <span class="workspace-badge">Contexto persistente</span>
+              <span class="workspace-badge">Streaming SSE</span>
+              <span class="workspace-badge">UX enterprise ready</span>
+            </div>
+          </div>
+          <div class="workspace-stats">
+            <article class="workspace-stat">
+              <span class="eyebrow">Workspace</span>
+              <strong>Historial inteligente</strong>
+              <span>Cada conversación mantiene continuidad y se presenta con una estructura premium más clara.</span>
+            </article>
+            <article class="workspace-stat">
+              <span class="eyebrow">Delivery</span>
+              <strong>Streaming en vivo</strong>
+              <span>Respuesta token a token con feedback visual y controles más consistentes.</span>
+            </article>
+            <article class="workspace-stat">
+              <span class="eyebrow">Control</span>
+              <strong>Gestión total</strong>
+              <span>Renombrar, eliminar y organizar chats sin tocar los hooks existentes.</span>
+            </article>
+          </div>
+        </div>
+
+        <div class="workspace-quickbar">
+          <div class="quick-grid">
+            <article class="quick-card">
+              <span class="eyebrow">UI system</span>
+              <strong>Spacing consistente</strong>
+              <span>Radios, bordes, sombras y contraste unificados en toda la experiencia.</span>
+            </article>
+            <article class="quick-card">
+              <span class="eyebrow">Usabilidad</span>
+              <strong>Composer refinado</strong>
+              <span>Área de entrada más amplia y clara para prompts largos o iterativos.</span>
+            </article>
+            <article class="quick-card">
+              <span class="eyebrow">Responsive</span>
+              <strong>Desktop a mobile</strong>
+              <span>Layout fluido que conserva jerarquía y controles en pantallas pequeñas.</span>
+            </article>
+          </div>
+        </div>
+
         <div id="messages" class="messages"></div>
 
         <div class="composer">
@@ -917,7 +1049,7 @@
             <div class="composer-head">
               <div>
                 <div class="composer-title">Mensaje para tu asistente</div>
-                <small class="muted">decide si deseas streaming SSE.</small>
+                <small class="muted">Mantén el contexto del chat activo y decide si deseas streaming SSE.</small>
               </div>
               <small id="composerStatus" class="status-badge hidden">Respondiendo...</small>
             </div>
@@ -930,7 +1062,6 @@
                 <small class="composer-hint"><kbd>Enter</kbd> enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> salto</small>
               </div>
               <div class="composer-actions">
-                <small id="composerStatus" class="status-badge hidden">Respondiendo...</small>
                 <button id="stopBtn" type="button" class="danger hidden" onclick="stopStreaming()">Detener</button>
                 <button id="sendBtn" type="button" onclick="sendMessage()">Enviar</button>
               </div>
@@ -1002,46 +1133,80 @@ function getToken() {
   return safeStorageGet(TOKEN_KEY) || "";
 }
 
-HEAD
 
-function setFeedback(el, text, isError = false) {
-  el.className = isError ? "error" : "success";
-  el.innerText = text;
+let conversations = [];
+let activeChatId = null;
+let isSending = false;
+let isStreaming = false;
+let currentAbortController = null;
+let activeStreamingChatId = null;
+let activeStreamingMessageId = null;
+
+function safeStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
+function safeStorageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
+function getToken() {
+  return safeStorageGet(TOKEN_KEY) || "";
 }
 
 function getUser() {
   return safeStorageGet(USER_KEY) || "";
 }
 
+
+function safeStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
+function safeStorageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+function setFeedback(el, text, isError = false) {
+  el.className = isError ? "error" : "success";
+  el.innerText = text;
+}
+
+function getToken() {
+  return safeStorageGet(TOKEN_KEY) || "";
+}
+
+function getUser() {
+  return safeStorageGet(USER_KEY) || "";
+}
 function authHeaders(extra = {}) {
   const token = getToken();
   const headers = { ...extra };
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
-}
-
-function buildEndpointCandidates(path) {
-  const normalized = path.startsWith('/') ? path : `/${path}`;
-  const prefixed = `${API_BASE}${normalized}`;
-  return Array.from(new Set([prefixed, normalized]));
-}
-
-async function fetchApi(path, options = {}) {
-  const candidates = buildEndpointCandidates(path);
-  let lastError = null;
-
-  for (const url of candidates) {
-    try {
-      const response = await fetch(url, options);
-      if (response.status === 404 && url !== candidates[candidates.length - 1]) continue;
-      return response;
-    } catch (error) {
-      lastError = error;
-      if (url === candidates[candidates.length - 1]) throw error;
-    }
-  }
-
-  throw lastError || new Error(`No se pudo contactar el endpoint ${path}`);
 }
 
 function chatsStorageKey() {
@@ -1052,6 +1217,11 @@ function chatsStorageKey() {
 function activeStorageKey() {
   const user = getUser();
   return `${ACTIVE_CHAT_KEY_PREFIX}${user}`;
+}
+
+function setFeedback(el, text, isError = false) {
+  el.className = isError ? "error" : "success";
+  el.innerText = text;
 }
 
 function syncComposerHeight() {
@@ -1432,7 +1602,7 @@ window.signup = async function () {
   }
 
   try {
-    const response = await fetchApi("/auth/signup", {
+    const response = await fetch(API_BASE + "/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -1466,7 +1636,7 @@ window.login = async function () {
   }
 
   try {
-    const response = await fetchApi("/auth/login", {
+    const response = await fetch(API_BASE + "/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -1496,8 +1666,7 @@ window.login = async function () {
     renderAuthState();
   } catch (err) {
     authMetaEl.innerText = "";
-    authErrorEl.innerText = `No se pudo conectar al backend: ${err?.message || err}`;
-    console.error("Login error", err);
+    authErrorEl.innerText = `No se pudo conectar al backend: ${err}`;
   }
 };
 
@@ -1530,7 +1699,7 @@ window.changePassword = async function () {
   }
 
   try {
-    const response = await fetchApi("/auth/change-password", {
+    const response = await fetch(API_BASE + "/auth/change-password", {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
@@ -1580,7 +1749,7 @@ async function sendStreaming(chatId, prompt, assistantMsgId) {
   activeStreamingChatId = chatId;
   activeStreamingMessageId = assistantMsgId;
 
-  const response = await fetchApi("/chat/stream", {
+  const response = await fetch(API_BASE + "/chat/stream", {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ message: prompt, user: getUser() || "board-demo" }),
@@ -1688,7 +1857,7 @@ window.sendMessage = async function () {
   metaEl.innerText = "Consultando...";
   setComposerBusyState({ sending: true, streaming: false, status: "Enviando..." });
   try {
-    const response = await fetchApi("/chat", {
+    const response = await fetch(API_BASE + "/chat", {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ message: prompt, user: getUser() || "board-demo" }),
