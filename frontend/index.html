@@ -89,24 +89,26 @@
       top: 18px;
       z-index: 30;
       width: min(1320px, 100%);
-      margin: 0 auto 22px auto;
-      display: grid;
-      grid-template-columns: auto 1fr auto;
+      margin: 0 auto 24px auto;
+      display: flex;
       align-items: center;
-      gap: 20px;
-      padding: 14px 18px;
+      justify-content: center;
+      min-height: 72px;
+      padding: 14px 24px;
       border: 1px solid var(--border);
       border-radius: 999px;
-      background: linear-gradient(180deg, rgba(14, 20, 39, 0.8), rgba(9, 14, 28, 0.7));
+      background: linear-gradient(180deg, rgba(13, 19, 36, 0.8), rgba(9, 14, 28, 0.72));
       backdrop-filter: var(--blur);
       box-shadow: var(--shadow-lg);
     }
 
     .brand {
-      display: flex;
+      display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 12px;
       min-width: 0;
+      text-align: center;
     }
 
     .brand-mark {
@@ -117,6 +119,7 @@
       box-shadow: 0 0 28px rgba(84, 132, 255, 0.44);
       position: relative;
       overflow: hidden;
+      flex: none;
     }
 
     .brand-mark::after {
@@ -136,7 +139,7 @@
 
     .brand-title {
       font-weight: 800;
-      font-size: 0.98rem;
+      font-size: 1rem;
       white-space: nowrap;
     }
 
@@ -148,39 +151,25 @@
       white-space: nowrap;
     }
 
-    .nav-links {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      min-width: 0;
-    }
-
-    .nav-chip {
-      border: 1px solid rgba(135, 162, 225, 0.18);
-      border-radius: 999px;
-      padding: 8px 12px;
-      background: rgba(16, 24, 43, 0.5);
-      color: var(--muted-2);
-      font-size: 0.8rem;
-      white-space: nowrap;
-    }
-
     .nav-status {
-      display: flex;
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      border: 1px solid rgba(130, 158, 224, 0.18);
+      gap: 8px;
+      border: 1px solid rgba(130, 158, 224, 0.16);
       border-radius: 999px;
-      padding: 8px 12px;
-      background: rgba(10, 16, 31, 0.7);
+      padding: 7px 10px;
+      background: rgba(10, 16, 31, 0.58);
       color: var(--muted);
-      font-size: 0.82rem;
+      font-size: 0.78rem;
     }
 
     .nav-status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 999px;
       background: linear-gradient(180deg, #89c2ff, #4f84ff);
       box-shadow: 0 0 14px rgba(79, 133, 255, 0.55);
@@ -191,18 +180,18 @@
       width: min(1320px, 100%);
       margin: 0 auto;
       min-height: calc(100vh - 136px);
-      display: grid;
+      display: flex;
       align-items: center;
+      justify-content: center;
+      padding: 16px;
     }
 
     .auth-card {
-      display: grid;
-      grid-template-columns: minmax(0, 1.18fr) minmax(360px, 430px);
-      gap: 24px;
+      width: min(460px, 100%);
       padding: 28px;
       border: 1px solid var(--border);
       border-radius: var(--radius-xl);
-      background: linear-gradient(180deg, rgba(10, 15, 29, 0.84), rgba(8, 12, 24, 0.78));
+      background: linear-gradient(180deg, rgba(10, 15, 29, 0.86), rgba(8, 12, 24, 0.8));
       backdrop-filter: var(--blur);
       box-shadow: var(--shadow-xl);
       position: relative;
@@ -214,184 +203,24 @@
       content: "";
       position: absolute;
       inset: -1px;
-      background: linear-gradient(135deg, rgba(94, 135, 255, 0.18), transparent 28%, transparent 72%, rgba(255, 151, 92, 0.12));
+      background: linear-gradient(145deg, rgba(94, 135, 255, 0.14), transparent 36%, transparent 70%, rgba(255, 151, 92, 0.08));
       z-index: -1;
     }
 
-    .hero-panel {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 24px;
-      padding: 18px 10px 18px 4px;
-      min-width: 0;
-    }
-
-    .hero-kicker {
-      display: inline-flex;
-      align-self: flex-start;
-      border: 1px solid rgba(125, 158, 245, 0.24);
-      border-radius: 999px;
-      padding: 8px 12px;
-      background: rgba(17, 28, 52, 0.62);
-      color: #a8c0ff;
-      font-size: 0.74rem;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-    }
-
-    .hero-title {
-      margin: 0;
-      max-width: 11ch;
-      font-size: clamp(2.7rem, 6vw, 5.5rem);
-      line-height: 0.94;
-      letter-spacing: -0.04em;
-      font-weight: 900;
-    }
-
-    .hero-title .accent {
-      display: block;
-      background: linear-gradient(120deg, #6fb5ff, #a58dff 55%, #ffab73);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-
-    .hero-copy {
-      max-width: 62ch;
-      margin: 0;
-      color: var(--muted-2);
-      line-height: 1.7;
-      font-size: 1.02rem;
-    }
-
-    .hero-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .hero-pills {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .hero-pill {
-      border: 1px solid rgba(131, 159, 224, 0.18);
-      border-radius: 999px;
-      padding: 10px 14px;
-      background: rgba(14, 22, 42, 0.7);
-      color: #c9d8ff;
-      font-size: 0.82rem;
-    }
-
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1.35fr 0.95fr;
-      gap: 14px;
-      align-items: stretch;
-    }
-
-    .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .stat,
-    .hero-insight,
-    .workspace-stat,
-    .quick-card {
-      border: 1px solid rgba(132, 160, 226, 0.16);
-      border-radius: var(--radius-md);
-      background: linear-gradient(180deg, rgba(18, 28, 51, 0.84), rgba(13, 20, 38, 0.84));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
-    }
-
-    .stat {
-      padding: 18px;
-      min-height: 124px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .stat-label,
-    .eyebrow {
-      color: #93a5d0;
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-
-    .stat strong,
-    .hero-insight strong,
-    .workspace-stat strong,
-    .quick-card strong {
-      display: block;
-      font-size: 1.18rem;
-      line-height: 1.1;
-    }
-
-    .stat span,
-    .hero-insight span,
-    .workspace-stat span,
-    .quick-card span {
-      color: var(--muted);
-      font-size: 0.82rem;
-      line-height: 1.5;
-    }
-
-    .hero-insight {
-      padding: 20px;
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-height: 100%;
-    }
-
-    .hero-insight::before {
-      content: "";
-      position: absolute;
-      inset: auto -40px -50px auto;
-      width: 150px;
-      height: 150px;
-      border-radius: 999px;
-      background: radial-gradient(circle, rgba(255, 149, 84, 0.3), transparent 64%);
-      filter: blur(8px);
-    }
-
-    .hero-insight ul {
-      margin: 14px 0 0 0;
-      padding-left: 18px;
-      color: var(--muted-2);
-      line-height: 1.7;
-      font-size: 0.92rem;
-    }
-
     .auth-form {
-      align-self: stretch;
       display: flex;
       flex-direction: column;
       gap: 14px;
-      padding: 24px;
-      border: 1px solid rgba(132, 160, 226, 0.16);
-      border-radius: calc(var(--radius-lg) + 2px);
-      background: linear-gradient(180deg, rgba(14, 21, 39, 0.94), rgba(9, 14, 27, 0.92));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
       min-width: 0;
     }
 
     .auth-form-head {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 14px;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      text-align: center;
+      margin-bottom: 6px;
     }
 
     .auth-form h2,
@@ -402,20 +231,22 @@
       margin: 0;
     }
 
-    .auth-form-sub {
-      color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.6;
+    .auth-kicker {
+      border: 1px solid rgba(132, 160, 226, 0.16);
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: rgba(18, 28, 51, 0.56);
+      color: #b8cbff;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
     }
 
-    .mini-badge {
-      border: 1px solid rgba(132, 160, 226, 0.18);
-      border-radius: 999px;
-      padding: 8px 10px;
-      background: rgba(18, 28, 51, 0.72);
-      color: #b9cbff;
-      font-size: 0.76rem;
-      white-space: nowrap;
+    .auth-form-sub {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.65;
+      max-width: 32ch;
     }
 
     .field-group {
@@ -428,14 +259,6 @@
       font-size: 0.82rem;
       color: var(--muted-2);
     }
-
-    .auth-footnote {
-      margin-top: auto;
-      color: var(--muted);
-      font-size: 0.8rem;
-      line-height: 1.6;
-    }
-
     .app-shell {
       width: min(1320px, 100%);
       margin: 0 auto;
@@ -958,12 +781,15 @@
 
       .floating-nav {
         position: static;
-        grid-template-columns: 1fr;
-        justify-items: stretch;
         border-radius: 24px;
       }
 
-      .nav-links,
+      .nav-status {
+        position: static;
+        transform: none;
+        margin-left: auto;
+      }
+
       .workspace-badge-stack {
         justify-content: flex-start;
       }
@@ -1014,13 +840,6 @@
         padding-right: 16px;
       }
 
-      .hero-title {
-        font-size: clamp(2.3rem, 11vw, 4rem);
-        max-width: 100%;
-      }
-
-      .hero-grid,
-      .hero-stats,
       .workspace-stats,
       .quick-grid {
         grid-template-columns: 1fr;
@@ -1063,11 +882,6 @@
           <span class="brand-subtitle">Enterprise AI Workspace</span>
         </div>
       </div>
-      <div class="nav-links">
-        <span class="nav-chip">Copilot empresarial</span>
-        <span class="nav-chip">Integraciones internas</span>
-        <span class="nav-chip">Analytics operacional</span>
-      </div>
       <div class="nav-status">
         <span class="nav-status-dot"></span>
         <span>Backend: <span id="api"></span></span>
@@ -1076,64 +890,13 @@
 
     <div id="authShell" class="auth-shell">
       <div class="auth-card">
-        <section class="hero-panel">
-          <div class="hero-kicker">AI Platform • Productivity Layer</div>
-          <div>
-            <h1 class="hero-title">Your internal operations,<span class="accent"> clarified by AI.</span></h1>
-            <p class="hero-copy">ITCOM AI convierte el workspace interno en una consola premium para consulta ejecutiva, seguimiento operativo y colaboración con contexto persistente. Mantiene una experiencia enterprise clara, rápida y gobernable sin alterar tu flujo actual.</p>
-          </div>
-
-          <div class="hero-actions">
-            <button type="button" onclick="login()">Acceder al workspace</button>
-            <button type="button" class="ghost" onclick="toggleSignup(true)">Crear cuenta</button>
-          </div>
-
-          <div class="hero-pills">
-            <span class="hero-pill">Seguridad y sesiones persistentes</span>
-            <span class="hero-pill">Contexto por conversación</span>
-            <span class="hero-pill">Streaming y trazabilidad operativa</span>
-          </div>
-
-          <div class="hero-grid">
-            <div class="hero-stats">
-              <article class="stat">
-                <span class="stat-label">Disponibilidad</span>
-                <strong>99.9%</strong>
-                <span>Superficies enfocadas en continuidad operativa y respuesta inmediata.</span>
-              </article>
-              <article class="stat">
-                <span class="stat-label">Respuesta</span>
-                <strong>&lt; 1 min</strong>
-                <span>Interacciones rápidas con historial, streaming y controles claros.</span>
-              </article>
-              <article class="stat">
-                <span class="stat-label">Cobertura</span>
-                <strong>+12 flujos</strong>
-                <span>Base visual lista para escenarios internos de consulta y seguimiento.</span>
-              </article>
-            </div>
-            <aside class="hero-insight">
-              <div>
-                <span class="eyebrow">Operational insight</span>
-                <strong>Un solo workspace para autenticación, conversación y continuidad.</strong>
-                <span>El rediseño consolida jerarquía visual, superficies glass premium y estados consistentes para desktop, tablet y mobile.</span>
-              </div>
-              <ul>
-                <li>Navbar premium flotante con glass effect.</li>
-                <li>Hero dominante centrado con CTA principal y secundario.</li>
-                <li>Cards y formularios oscuros con spacing y radios consistentes.</li>
-              </ul>
-            </aside>
-          </div>
-        </section>
-
         <section class="auth-form">
           <div class="auth-form-head">
+            <span class="auth-kicker">Secure access</span>
             <div>
-              <h2 style="font-size:1.35rem; font-weight:800;">Iniciar sesión</h2>
-              <div class="auth-form-sub">Accede al entorno conversacional premium manteniendo toda la funcionalidad de autenticación, signup y cambio de contraseña.</div>
+              <h2 style="font-size:1.5rem; font-weight:800;">Iniciar sesión</h2>
+              <div class="auth-form-sub">Accede a ITCOM AI Proto desde una pantalla de acceso más limpia, sobria y centrada, manteniendo intacta toda la funcionalidad actual.</div>
             </div>
-            <span class="mini-badge">Secure access</span>
           </div>
 
           <div class="field-group">
@@ -1173,7 +936,6 @@
             <small id="signupFeedback"></small>
           </div>
 
-          <div class="auth-footnote">UX premium, mismas rutas, mismos IDs y mismo flujo funcional para login, signup y sesión persistente.</div>
         </section>
       </div>
     </div>
@@ -1380,6 +1142,35 @@ let isStreaming = false;
 let currentAbortController = null;
 let activeStreamingChatId = null;
 let activeStreamingMessageId = null;
+
+function safeStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
+function safeStorageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
+function getToken() {
+  return safeStorageGet(TOKEN_KEY) || "";
+}
+
+function getUser() {
+  return safeStorageGet(USER_KEY) || "";
+}
+
 
 function safeStorageGet(key) {
   try {
