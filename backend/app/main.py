@@ -172,6 +172,21 @@ def get_current_user(authorization: str | None = Header(default=None)) -> str:
     return parse_token(token)
 
 
+def get_optional_current_user(authorization: str | None = Header(default=None)) -> str | None:
+    if not authorization:
+        return None
+
+    validate_auth_config()
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Falta Authorization Bearer token")
+
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Bearer token vacío")
+
+    return parse_token(token)
+
+
 @app.post("/auth/login")
 def login(req: LoginRequest):
     validate_auth_config()
@@ -204,13 +219,14 @@ def health():
 
 
 @app.post("/chat")
-def chat(req: ChatRequest, user: str = Depends(get_current_user)):
+def chat(req: ChatRequest, auth_user: str | None = Depends(get_optional_current_user)):
     t0 = time.time()
 
     msg = (req.message or "").strip()
     if not msg:
         raise HTTPException(status_code=400, detail="message vacío")
 
+    user = auth_user or req.user or "board-demo"
     payload = build_generate_payload(msg, stream=False)
 
     last_error = None
@@ -389,3 +405,4 @@ def chat_stream(req: ChatRequest, user: str = Depends(get_current_user)):
         )
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+    user = auth_user or req.user or "board-demo"
