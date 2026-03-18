@@ -135,7 +135,6 @@
       flex-direction: column;
       gap: 2px;
       min-width: 0;
-      align-items: flex-start;
     }
 
     .brand-title {
@@ -146,7 +145,7 @@
 
     .brand-subtitle {
       color: var(--muted);
-      font-size: 0.72rem;
+      font-size: 0.74rem;
       text-transform: uppercase;
       letter-spacing: 0.12em;
       white-space: nowrap;
@@ -843,6 +842,7 @@
       }
 
       .auth-card,
+      .auth-form,
       .workspace-hero,
       .workspace-quickbar,
       .composer,
@@ -899,8 +899,8 @@
       <div class="brand">
         <div class="brand-mark"></div>
         <div class="brand-copy">
-          <span class="brand-title">Symbiotix</span>
-          <span class="brand-subtitle">Enterprise Intelligence Workspace</span>
+          <span class="brand-title">ITCOM AI Proto</span>
+          <span class="brand-subtitle">Enterprise AI Workspace</span>
         </div>
       </div>
       <div class="nav-status">
@@ -916,7 +916,7 @@
             <span class="auth-kicker">Secure access</span>
             <div>
               <h2 style="font-size:1.5rem; font-weight:800;">Iniciar sesión</h2>
-              
+              <div class="auth-form-sub">Accede a ITCOM AI Proto desde una pantalla de acceso más limpia, sobria y centrada, manteniendo intacta toda la funcionalidad actual.</div>
             </div>
           </div>
 
@@ -1101,6 +1101,9 @@ const CHAT_KEY_PREFIX = "itcom_ai_chats_";
 
 const authShellEl = document.getElementById("authShell");
 const appShellEl = document.getElementById("appShell");
+document.getElementById("api").innerText = API_BASE;
+
+const pageEl = document.getElementById("page");
 const authErrorEl = document.getElementById("authError");
 const authMetaEl = document.getElementById("authMeta");
 const signupPanelEl = document.getElementById("signupPanel");
@@ -1110,6 +1113,7 @@ const changePasswordPanelEl = document.getElementById("changePasswordPanel");
 const changePasswordFeedbackEl = document.getElementById("changePasswordFeedback");
 const chatListEl = document.getElementById("chatList");
 const messagesEl = document.getElementById("messages");
+const metaEl = document.getElementById("meta");
 const msgEl = document.getElementById("msg");
 const metaEl = document.getElementById("meta");
 const sendBtnEl = document.getElementById("sendBtn");
@@ -1718,6 +1722,7 @@ function parseSseEvents(raw, onToken, onDone, onError) {
       if (data.done) onDone(data);
     } catch {}
   }
+};
 
   return remain;
 }
