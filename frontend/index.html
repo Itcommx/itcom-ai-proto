@@ -135,6 +135,7 @@
       flex-direction: column;
       gap: 2px;
       min-width: 0;
+      align-items: flex-start;
     }
 
     .brand-title {
@@ -315,8 +316,10 @@
 
     .sidebar-header {
       display: flex;
-      flex-direction: column;
-      gap: 16px;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      min-height: 78px;
     }
 
     .sidebar-user {
@@ -443,116 +446,13 @@
 
     .main {
       display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr) auto;
-    }
-
-    .workspace-hero {
-      position: relative;
-      padding: 22px 24px 18px 24px;
-      border-bottom: 1px solid rgba(129, 155, 220, 0.12);
-      background:
-        radial-gradient(circle at 12% 0%, rgba(95, 144, 255, 0.16), transparent 34%),
-        radial-gradient(circle at 92% 10%, rgba(255, 160, 100, 0.1), transparent 30%),
-        linear-gradient(180deg, rgba(17, 25, 47, 0.96), rgba(11, 18, 33, 0.92));
-      overflow: hidden;
-    }
-
-    .workspace-hero::after {
-      content: "";
-      position: absolute;
-      right: -40px;
-      top: -20px;
-      width: 220px;
-      height: 220px;
-      border-radius: 999px;
-      background: radial-gradient(circle, rgba(98, 146, 255, 0.18), transparent 64%);
-      filter: blur(6px);
-    }
-
-    .workspace-head {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 18px;
-      margin-bottom: 18px;
-    }
-
-    .workspace-title {
-      font-size: clamp(1.7rem, 2.4vw, 2.3rem);
-      font-weight: 850;
-      letter-spacing: -0.03em;
-    }
-
-    .workspace-sub {
-      margin: 8px 0 0 0;
-      max-width: 68ch;
-      color: var(--muted-2);
-      font-size: 0.96rem;
-      line-height: 1.7;
-    }
-
-    .workspace-badge-stack {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .workspace-badge {
-      border: 1px solid rgba(131, 159, 224, 0.2);
-      border-radius: 999px;
-      padding: 9px 12px;
-      background: rgba(12, 18, 34, 0.62);
-      color: #bed0ff;
-      font-size: 0.78rem;
-    }
-
-    .workspace-stats,
-    .quick-grid {
-      display: grid;
-      gap: 12px;
-    }
-
-    .workspace-stats {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      position: relative;
-      z-index: 1;
-    }
-
-    .workspace-stat {
-      padding: 16px;
-      min-height: 118px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .workspace-quickbar {
-      padding: 14px 24px;
-      border-bottom: 1px solid rgba(129, 155, 220, 0.12);
-      background: rgba(10, 16, 30, 0.78);
-    }
-
-    .quick-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .quick-card {
-      padding: 14px 16px;
-      min-height: 96px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 10px;
+      grid-template-rows: minmax(0, 1fr) auto;
     }
 
     .messages {
       min-height: 0;
       overflow-y: auto;
-      padding: 24px;
+      padding: 18px 20px 20px 20px;
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -584,7 +484,7 @@
     }
 
     .composer {
-      padding: 18px 20px 20px 20px;
+      padding: 14px 18px 18px 18px;
       border-top: 1px solid rgba(129, 155, 220, 0.12);
       background: linear-gradient(180deg, rgba(11, 18, 34, 0.96), rgba(8, 14, 28, 0.94));
       display: flex;
@@ -916,7 +816,7 @@
             <span class="auth-kicker">Secure access</span>
             <div>
               <h2 style="font-size:1.5rem; font-weight:800;">Iniciar sesión</h2>
-              <div class="auth-form-sub">Accede a ITCOM AI Proto desde una pantalla de acceso más limpia, sobria y centrada, manteniendo intacta toda la funcionalidad actual.</div>
+              <div class="auth-form-sub">Accede a Symbiotix.</div>
             </div>
           </div>
 
@@ -967,7 +867,6 @@
           <div>
             <div class="sidebar-topline">Conversation hub</div>
             <div class="sidebar-block-title">Conversaciones</div>
-            <p class="sidebar-block-copy">Administra contexto, continuidad y organización del historial sin romper las acciones actuales del demo.</p>
           </div>
           <div class="row between">
             <button type="button" onclick="createNewChat(true)">Nuevo chat</button>
@@ -988,7 +887,7 @@
 
           <div id="changePasswordPanel" class="panel hidden">
             <h4>Cambiar contraseña</h4>
-            <p class="panel-copy">Actualiza las credenciales conservando el comportamiento de seguridad ya existente.</p>
+            <p class="panel-copy">Actualiza las credenciales.</p>
             <div class="field-group">
               <label for="currentPassword">Contraseña actual</label>
               <input id="currentPassword" type="password" placeholder="Contraseña actual" />
@@ -1011,58 +910,6 @@
       </aside>
 
       <section class="main">
-        <div class="workspace-hero">
-          <div class="workspace-head">
-            <div>
-              <div class="workspace-topline">AI command center</div>
-              <h3 class="workspace-title">Productivity AI Console</h3>
-              <p class="workspace-sub">Conversa con tu asistente empresarial en una interfaz más sólida, con mejor jerarquía visual, mejor foco en contenido y un sistema coherente de superficies, estados y espaciado.</p>
-            </div>
-            <div class="workspace-badge-stack">
-              <span class="workspace-badge">Contexto persistente</span>
-              <span class="workspace-badge">Streaming SSE</span>
-              <span class="workspace-badge">UX enterprise ready</span>
-            </div>
-          </div>
-          <div class="workspace-stats">
-            <article class="workspace-stat">
-              <span class="eyebrow">Workspace</span>
-              <strong>Historial inteligente</strong>
-              <span>Cada conversación mantiene continuidad y se presenta con una estructura premium más clara.</span>
-            </article>
-            <article class="workspace-stat">
-              <span class="eyebrow">Delivery</span>
-              <strong>Streaming en vivo</strong>
-              <span>Respuesta token a token con feedback visual y controles más consistentes.</span>
-            </article>
-            <article class="workspace-stat">
-              <span class="eyebrow">Control</span>
-              <strong>Gestión total</strong>
-              <span>Renombrar, eliminar y organizar chats sin tocar los hooks existentes.</span>
-            </article>
-          </div>
-        </div>
-
-        <div class="workspace-quickbar">
-          <div class="quick-grid">
-            <article class="quick-card">
-              <span class="eyebrow">UI system</span>
-              <strong>Spacing consistente</strong>
-              <span>Radios, bordes, sombras y contraste unificados en toda la experiencia.</span>
-            </article>
-            <article class="quick-card">
-              <span class="eyebrow">Usabilidad</span>
-              <strong>Composer refinado</strong>
-              <span>Área de entrada más amplia y clara para prompts largos o iterativos.</span>
-            </article>
-            <article class="quick-card">
-              <span class="eyebrow">Responsive</span>
-              <strong>Desktop a mobile</strong>
-              <span>Layout fluido que conserva jerarquía y controles en pantallas pequeñas.</span>
-            </article>
-          </div>
-        </div>
-
         <div id="messages" class="messages"></div>
 
         <div class="composer">
@@ -1070,7 +917,7 @@
             <div class="composer-head">
               <div>
                 <div class="composer-title">Mensaje para tu asistente</div>
-                <small class="muted">Mantén el contexto del chat activo y decide si deseas streaming SSE.</small>
+                <small class="muted">decide si deseas streaming SSE.</small>
               </div>
               <small id="composerStatus" class="status-badge hidden">Respondiendo...</small>
             </div>
@@ -1083,6 +930,7 @@
                 <small class="composer-hint"><kbd>Enter</kbd> enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> salto</small>
               </div>
               <div class="composer-actions">
+                <small id="composerStatus" class="status-badge hidden">Respondiendo...</small>
                 <button id="stopBtn" type="button" class="danger hidden" onclick="stopStreaming()">Detener</button>
                 <button id="sendBtn" type="button" onclick="sendMessage()">Enviar</button>
               </div>
