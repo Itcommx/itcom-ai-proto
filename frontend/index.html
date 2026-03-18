@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ITCOM AI Prototype</title>
+  <title>Symbiotix</title>
   <style>
     :root {
       --bg: #050816;
@@ -247,6 +247,18 @@
       font-size: 0.92rem;
       line-height: 1.65;
       max-width: 32ch;
+    }
+
+    .auth-actions {
+      justify-content: center;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .auth-actions button {
+      min-width: 168px;
+      width: auto;
+      flex: 0 1 auto;
     }
 
     .field-group {
@@ -867,6 +879,15 @@
       .panel .row button {
         flex: 1 1 100%;
       }
+
+      .auth-actions {
+        width: 100%;
+      }
+
+      .auth-actions button {
+        min-width: 0;
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -907,7 +928,7 @@
             <label for="password">Contraseña</label>
             <input id="password" type="password" placeholder="Contraseña" />
           </div>
-          <div class="row">
+          <div class="row auth-actions">
             <button type="button" onclick="login()">Iniciar sesión</button>
             <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
           </div>
@@ -1134,72 +1155,6 @@ function getToken() {
   return safeStorageGet(TOKEN_KEY) || "";
 }
 
-
-let conversations = [];
-let activeChatId = null;
-let isSending = false;
-let isStreaming = false;
-let currentAbortController = null;
-let activeStreamingChatId = null;
-let activeStreamingMessageId = null;
-
-function safeStorageGet(key) {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function safeStorageSet(key, value) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {}
-}
-
-function safeStorageRemove(key) {
-  try {
-    localStorage.removeItem(key);
-  } catch {}
-}
-
-function getToken() {
-  return safeStorageGet(TOKEN_KEY) || "";
-}
-
-function getUser() {
-  return safeStorageGet(USER_KEY) || "";
-}
-
-
-function safeStorageGet(key) {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function safeStorageSet(key, value) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {}
-}
-
-function safeStorageRemove(key) {
-  try {
-    localStorage.removeItem(key);
-  } catch {}
-}
-function setFeedback(el, text, isError = false) {
-  el.className = isError ? "error" : "success";
-  el.innerText = text;
-}
-
-function getToken() {
-  return safeStorageGet(TOKEN_KEY) || "";
-}
-
 function getUser() {
   return safeStorageGet(USER_KEY) || "";
 }
@@ -1209,6 +1164,30 @@ function authHeaders(extra = {}) {
   const headers = { ...extra };
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
+}
+
+function buildEndpointCandidates(path) {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  const prefixed = `${API_BASE}${normalized}`;
+  return Array.from(new Set([prefixed, normalized]));
+}
+
+async function fetchApi(path, options = {}) {
+  const candidates = buildEndpointCandidates(path);
+  let lastError = null;
+
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url, options);
+      if (response.status === 404 && url !== candidates[candidates.length - 1]) continue;
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (url === candidates[candidates.length - 1]) throw error;
+    }
+  }
+
+  throw lastError || new Error(`No se pudo contactar el endpoint ${path}`);
 }
 
 function chatsStorageKey() {
@@ -1604,7 +1583,7 @@ window.signup = async function () {
   }
 
   try {
-    const response = await fetch(API_BASE + "/auth/signup", {
+    const response = await fetchApi("/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -1638,7 +1617,7 @@ window.login = async function () {
   }
 
   try {
-    const response = await fetch(API_BASE + "/auth/login", {
+    const response = await fetchApi("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -1668,7 +1647,8 @@ window.login = async function () {
     renderAuthState();
   } catch (err) {
     authMetaEl.innerText = "";
-    authErrorEl.innerText = `No se pudo conectar al backend: ${err}`;
+    authErrorEl.innerText = `No se pudo conectar al backend: ${err?.message || err}`;
+    console.error("Login error", err);
   }
 };
 
@@ -1701,7 +1681,7 @@ window.changePassword = async function () {
   }
 
   try {
-    const response = await fetch(API_BASE + "/auth/change-password", {
+    const response = await fetchApi("/auth/change-password", {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
@@ -1752,7 +1732,7 @@ async function sendStreaming(chatId, prompt, assistantMsgId) {
   activeStreamingChatId = chatId;
   activeStreamingMessageId = assistantMsgId;
 
-  const response = await fetch(API_BASE + "/chat/stream", {
+  const response = await fetchApi("/chat/stream", {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ message: prompt, user: getUser() || "board-demo" }),
@@ -1860,7 +1840,7 @@ window.sendMessage = async function () {
   metaEl.innerText = "Consultando...";
   setComposerBusyState({ sending: true, streaming: false, status: "Enviando..." });
   try {
-    const response = await fetch(API_BASE + "/chat", {
+    const response = await fetchApi("/chat", {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ message: prompt, user: getUser() || "board-demo" }),
