@@ -153,4 +153,4 @@ Persistencia demo de usuarios:
 - Se usa `AUTH_USERS_PATH` (default `/app/logs/users.json`).
 - En startup se asegura el usuario inicial definido por `AUTH_USERNAME`/`AUTH_PASSWORD`.
 - Las nuevas cuentas guardan correo, estado de verificación, hash del código y expiración/cooldown de reenvío.
-- Configura SMTP con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` y `SMTP_USE_TLS`.
+- - Configura SMTP con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS` y `SMTP_USE_SSL`.

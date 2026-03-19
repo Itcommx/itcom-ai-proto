@@ -38,6 +38,7 @@ class Settings:
     smtp_from_email: str
     smtp_from_name: str
     smtp_use_tls: bool
+    smtp_use_ssl: bool
 
 
 def build_settings() -> Settings:
@@ -60,9 +61,8 @@ def build_settings() -> Settings:
         smtp_username=env.get("SMTP_USERNAME", ""),
         smtp_password=env.get("SMTP_PASSWORD", ""),
         smtp_from_email=env.get("SMTP_FROM_EMAIL", ""),
-        smtp_from_name=env.get("SMTP_FROM_NAME", ""),
-        smtp_use_tls=env.get("SMTP_USE_TLS", "true").strip().lower() in {"1", "true", "yes", "on"},
-    )
+        smtp_from_name=env.get("SMTP_FROM_NAME", "Symbiotix"),
+        smtp_use_ssl=env.get("SMTP_USE_SSL", "false").strip().lower() in {"1", "true", "yes", "on"},
 
 
 settings = build_settings()
@@ -353,29 +353,54 @@ def send_verification_email(username: str, email: str, code: str):
     validate_smtp_config()
     message = EmailMessage()
     sender_name = settings.smtp_from_name.strip() or settings.app_name
-    message["Subject"] = "Código de verificación"
+    message["Subject"] = "Código de verificación de Symbiotix"
     message["From"] = f"{sender_name} <{settings.smtp_from_email}>"
     message["To"] = email
     message.set_content(
         "\n".join(
             [
+                "Symbiotix",
+                "",
                 f"Hola {username},",
                 "",
+                "Recibimos una solicitud para verificar tu cuenta.",
                 f"Tu código de verificación es: {code}",
                 "",
                 "El código expira en aproximadamente 10 minutos.",
+                "Si necesitas uno nuevo, puedes solicitar un reenvío desde la pantalla de acceso.",
                 "Si no solicitaste esta cuenta, ignora este correo.",
             ]
         )
     )
-
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
-        smtp.ehlo()
-        if settings.smtp_use_tls:
-            smtp.starttls()
-            smtp.ehlo()
-        smtp.login(settings.smtp_username, settings.smtp_password)
-        smtp.send_message(message)
+    try:
+        if settings.smtp_use_ssl:
+            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
+                smtp.login(settings.smtp_username, settings.smtp_password)
+                smtp.send_message(message)
+        else:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
+                smtp.ehlo()
+                if settings.smtp_use_tls:
+                    smtp.starttls()
+                    smtp.ehlo()
+                smtp.login(settings.smtp_username, settings.smtp_password)
+                smtp.send_message(message)
+    except (smtplib.SMTPException, OSError) as exc:
+        append_log_event(
+            {
+                "event": "smtp_verification_failed",
+                "smtp_host": settings.smtp_host,
+                "smtp_port": settings.smtp_port,
+                "smtp_use_tls": settings.smtp_use_tls,
+                "smtp_use_ssl": settings.smtp_use_ssl,
+                "to": email,
+                "error": str(exc),
+            }
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudo enviar el correo de verificación. Verifica la configuración SMTP e intenta nuevamente.",
+        )
 
 
 def assert_verification_code(username: str, record: dict[str, object], code: str):
