@@ -134,11 +134,14 @@ curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -
 El backend ahora expone endpoints de autenticación para la UX del frontend:
 
 - `POST /auth/signup` **y** `POST /api/auth/signup` (alias equivalente)
-  - payload: `{ "username": "nuevo", "password": "secreto123" }`
-  - respuesta exitosa: `{ "status": "ok", "message": "Cuenta creada", "user": "nuevo" }`
+  - payload: `{ "username": "nuevo", "password": "secreto123", "email": "nuevo@empresa.com" }`
+  - respuesta exitosa: crea la cuenta como no verificada, genera un código de 6 dígitos, lo envía por correo y devuelve el cooldown/TTL de verificación.
 - `POST /auth/login` **y** `POST /api/auth/login` (alias equivalente)
-  - payload: `{ "username": "admin", "password": "change_me" }`
+  - payload: `{ "username": "admin", "password": "change_me", "verification_code": "123456" }`
   - respuesta: `{ "access_token": "...", "token_type": "bearer", "expires_in": 3600, "user": "admin" }`
+- `POST /auth/resend-verification` **y** `POST /api/auth/resend-verification` (alias equivalente)
+  - payload: `{ "username": "nuevo", "password": "secreto123" }`
+  - respuesta: reenvía un nuevo código si la cuenta sigue sin verificar y no está dentro del cooldown.
 - `POST /auth/change-password` **y** `POST /api/auth/change-password` (alias equivalente, requiere `Authorization: Bearer <token>`)
   - payload: `{ "current_password": "old", "new_password": "new12345" }`
   - respuesta: `{ "status": "ok", "message": "Contraseña actualizada", "user": "..." }`
@@ -149,3 +152,6 @@ Ruta recomendada para frontend (con `API_BASE="/api"`):
 Persistencia demo de usuarios:
 - Se usa `AUTH_USERS_PATH` (default `/app/logs/users.json`).
 - En startup se asegura el usuario inicial definido por `AUTH_USERNAME`/`AUTH_PASSWORD`.
+- Las nuevas cuentas guardan correo, estado de verificación, hash del código y expiración/cooldown de reenvío.
+- Configura SMTP con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS` y `SMTP_USE_SSL`.
+- Defaults sugeridos para el flujo actual: `mail.itcom.mx`, `symbiotix@itcom.mx`, puerto `465`, con `SMTP_USE_TLS=true` y `SMTP_USE_SSL=true`.

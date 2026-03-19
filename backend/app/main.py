@@ -3,9 +3,12 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
+import smtplib
 import time
 from collections.abc import Generator
 from dataclasses import dataclass
+from email.message import EmailMessage
 from pathlib import Path
 
 import requests
@@ -28,6 +31,14 @@ class Settings:
     auth_secret: str
     auth_token_ttl: int
     auth_users_path: str
+    smtp_host: str
+    smtp_port: int
+    smtp_username: str
+    smtp_password: str
+    smtp_from_email: str
+    smtp_from_name: str
+    smtp_use_tls: bool
+    smtp_use_ssl: bool
 
 
 def build_settings() -> Settings:
@@ -45,6 +56,14 @@ def build_settings() -> Settings:
         auth_secret=env.get("AUTH_SECRET", ""),
         auth_token_ttl=int(env.get("AUTH_TOKEN_TTL", "3600")),
         auth_users_path=env.get("AUTH_USERS_PATH", "/app/logs/users.json"),
+        smtp_host=env.get("SMTP_HOST", "mail.itcom.mx"),
+        smtp_port=int(env.get("SMTP_PORT", "465")),
+        smtp_username=env.get("SMTP_USERNAME", "symbiotix@itcom.mx"),
+        smtp_password=env.get("SMTP_PASSWORD", ""),
+        smtp_from_email=env.get("SMTP_FROM_EMAIL", "symbiotix@itcom.mx"),
+        smtp_from_name=env.get("SMTP_FROM_NAME", "Symbiotix"),
+        smtp_use_tls=env.get("SMTP_USE_TLS", "true").strip().lower() in {"1", "true", "yes", "on"},
+        smtp_use_ssl=env.get("SMTP_USE_SSL", "true").strip().lower() in {"1", "true", "yes", "on"},
     )
 
 
@@ -60,9 +79,16 @@ class ChatRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+    verification_code: str | None = None
 
 
 class SignupRequest(BaseModel):
+    username: str
+    password: str
+    email: str
+
+
+class ResendVerificationRequest(BaseModel):
     username: str
     password: str
 
@@ -70,6 +96,10 @@ class SignupRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+VERIFICATION_CODE_TTL_SECONDS = 600
+VERIFICATION_RESEND_COOLDOWN_SECONDS = 60
 
 
 def build_prompt(message: str) -> str:
@@ -180,11 +210,48 @@ def hash_password(username: str, password: str) -> str:
     return hashlib.sha256(salted.encode("utf-8")).hexdigest()
 
 
+def hash_verification_code(username: str, code: str) -> str:
+    salted = f"{username}:{code}:{settings.auth_secret}:verification"
+    return hashlib.sha256(salted.encode("utf-8")).hexdigest()
+
+
 def users_path() -> Path:
     return Path(settings.auth_users_path)
 
 
-def load_users() -> dict[str, str]:
+def normalize_user_record(username: str, raw: object) -> dict[str, object] | None:
+    if isinstance(raw, str):
+        return {
+            "password_hash": raw,
+            "email": username if "@" in username else "",
+            "verified": True,
+            "verification_code_hash": None,
+            "verification_expires_at": None,
+            "verification_last_sent_at": None,
+            "created_at": now_ts(),
+            "verified_at": now_ts(),
+        }
+
+    if not isinstance(raw, dict):
+        return None
+
+    password_hash = str(raw.get("password_hash") or raw.get("password") or "").strip()
+    if not password_hash:
+        return None
+
+    return {
+        "password_hash": password_hash,
+        "email": str(raw.get("email") or "").strip().lower(),
+        "verified": bool(raw.get("verified", False)),
+        "verification_code_hash": raw.get("verification_code_hash"),
+        "verification_expires_at": raw.get("verification_expires_at"),
+        "verification_last_sent_at": raw.get("verification_last_sent_at"),
+        "created_at": int(raw.get("created_at") or now_ts()),
+        "verified_at": raw.get("verified_at"),
+    }
+
+
+def load_users() -> dict[str, dict[str, object]]:
     path = users_path()
     if not path.exists():
         return {}
@@ -192,32 +259,175 @@ def load_users() -> dict[str, str]:
         data = json.load(f)
     if not isinstance(data, dict):
         return {}
-    return {str(k): str(v) for k, v in data.items()}
+    users: dict[str, dict[str, object]] = {}
+    for key, value in data.items():
+        username = str(key)
+        record = normalize_user_record(username, value)
+        if record:
+            users[username] = record
+    return users
 
 
-def save_users(users: dict[str, str]):
+def save_users(users: dict[str, dict[str, object]]):
     path = users_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
 
 
+def validate_email(email: str) -> str:
+    clean = require_non_empty(email, "email").lower()
+    if "@" not in clean or "." not in clean.rsplit("@", 1)[-1]:
+        raise HTTPException(status_code=400, detail="email inválido")
+    return clean
+
+
+def make_user_record(username: str, password: str, email: str, *, verified: bool) -> dict[str, object]:
+    now = now_ts()
+    return {
+        "password_hash": hash_password(username, password),
+        "email": email,
+        "verified": verified,
+        "verification_code_hash": None,
+        "verification_expires_at": None,
+        "verification_last_sent_at": None,
+        "created_at": now,
+        "verified_at": now if verified else None,
+    }
+
+
 def ensure_default_user():
     users = load_users()
     if settings.auth_username and settings.auth_username not in users:
-        users[settings.auth_username] = hash_password(
+        users[settings.auth_username] = make_user_record(
             settings.auth_username,
             settings.auth_password,
+            settings.auth_username if "@" in settings.auth_username else "",
+            verified=True,
         )
         save_users(users)
 
 
+def get_user_record(username: str) -> dict[str, object] | None:
+    return load_users().get(username)
+
+
 def verify_user_password(username: str, password: str) -> bool:
-    users = load_users()
-    stored = users.get(username)
-    if not stored:
+    record = get_user_record(username)
+    if not record:
         return False
+    stored = str(record.get("password_hash") or "")
     return hmac.compare_digest(stored, hash_password(username, password))
+
+
+def validate_smtp_config():
+    required = {
+        "SMTP_HOST": settings.smtp_host,
+        "SMTP_PORT": settings.smtp_port,
+        "SMTP_USERNAME": settings.smtp_username,
+        "SMTP_PASSWORD": settings.smtp_password,
+        "SMTP_FROM_EMAIL": settings.smtp_from_email,
+        "SMTP_FROM_NAME": settings.smtp_from_name,
+    }
+    missing = [key for key, value in required.items() if value in {"", 0, None}]
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail=f"SMTP no configurado: define {', '.join(missing)}",
+        )
+
+
+def generate_verification_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def apply_new_verification_code(username: str, record: dict[str, object]) -> str:
+    code = generate_verification_code()
+    record["verification_code_hash"] = hash_verification_code(username, code)
+    record["verification_expires_at"] = now_ts() + VERIFICATION_CODE_TTL_SECONDS
+    record["verification_last_sent_at"] = now_ts()
+    record["verified"] = False
+    record["verified_at"] = None
+    return code
+
+
+def send_verification_email(username: str, email: str, code: str):
+    validate_smtp_config()
+    message = EmailMessage()
+    sender_name = settings.smtp_from_name.strip() or settings.app_name
+    message["Subject"] = "Código de verificación de Symbiotix"
+    message["From"] = f"{sender_name} <{settings.smtp_from_email}>"
+    message["To"] = email
+    message.set_content(
+        "\n".join(
+            [
+                "Symbiotix",
+                "",
+                f"Hola {username},",
+                "",
+                "Recibimos una solicitud para verificar tu cuenta.",
+                f"Tu código de verificación es: {code}",
+                "",
+                "El código expira en aproximadamente 10 minutos.",
+                "Si necesitas uno nuevo, puedes solicitar un reenvío desde la pantalla de acceso.",
+                "Si no solicitaste esta cuenta, ignora este correo.",
+            ]
+        )
+    )
+    try:
+        if settings.smtp_use_ssl:
+            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
+                smtp.login(settings.smtp_username, settings.smtp_password)
+                smtp.send_message(message)
+        else:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
+                smtp.ehlo()
+                if settings.smtp_use_tls:
+                    smtp.starttls()
+                    smtp.ehlo()
+                smtp.login(settings.smtp_username, settings.smtp_password)
+                smtp.send_message(message)
+    except (smtplib.SMTPException, OSError) as exc:
+        append_log_event(
+            {
+                "event": "smtp_verification_failed",
+                "smtp_host": settings.smtp_host,
+                "smtp_port": settings.smtp_port,
+                "smtp_use_tls": settings.smtp_use_tls,
+                "smtp_use_ssl": settings.smtp_use_ssl,
+                "to": email,
+                "error": str(exc),
+            }
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudo enviar el correo de verificación. Verifica la configuración SMTP e intenta nuevamente.",
+        )
+
+
+def assert_verification_code(username: str, record: dict[str, object], code: str):
+    stored_hash = str(record.get("verification_code_hash") or "")
+    expires_at = int(record.get("verification_expires_at") or 0)
+    if not stored_hash or not expires_at:
+        raise HTTPException(status_code=400, detail="Solicita un nuevo código de verificación")
+    if now_ts() > expires_at:
+        raise HTTPException(status_code=401, detail="El código de verificación expiró")
+    candidate = hash_verification_code(username, code)
+    if not hmac.compare_digest(stored_hash, candidate):
+        raise HTTPException(status_code=401, detail="Código de verificación inválido")
+
+
+def mark_user_verified(record: dict[str, object]):
+    record["verified"] = True
+    record["verified_at"] = now_ts()
+    record["verification_code_hash"] = None
+    record["verification_expires_at"] = None
+
+
+def verification_cooldown_remaining(record: dict[str, object]) -> int:
+    last_sent_at = int(record.get("verification_last_sent_at") or 0)
+    remaining = (last_sent_at + VERIFICATION_RESEND_COOLDOWN_SECONDS) - now_ts()
+    return max(0, remaining)
 
 
 def require_non_empty(value: str, field_name: str) -> str:
@@ -247,8 +457,10 @@ def startup_seed_users():
 @app.post("/api/auth/signup")
 def signup(req: SignupRequest):
     validate_auth_config()
+    validate_smtp_config()
     username = require_non_empty(req.username, "username")
     password = require_non_empty(req.password, "password")
+    email = validate_email(req.email)
 
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="password debe tener al menos 6 caracteres")
@@ -257,10 +469,21 @@ def signup(req: SignupRequest):
     if username in users:
         raise HTTPException(status_code=409, detail="El usuario ya existe")
 
-    users[username] = hash_password(username, password)
+    users[username] = make_user_record(username, password, email, verified=False)
+    code = apply_new_verification_code(username, users[username])
+    send_verification_email(username, email, code)
     save_users(users)
 
-    return {"status": "ok", "message": "Cuenta creada", "user": username}
+    return {
+        "status": "ok",
+        "message": "Cuenta creada. Revisa tu correo para validar el código.",
+        "user": username,
+        "email": email,
+        "verified": False,
+        "verification_required": True,
+        "verification_expires_in": VERIFICATION_CODE_TTL_SECONDS,
+        "resend_cooldown_seconds": VERIFICATION_RESEND_COOLDOWN_SECONDS,
+    }
 
 
 @app.post("/auth/login")
@@ -273,12 +496,72 @@ def login(req: LoginRequest):
     if not verify_user_password(username, password):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
+    users = load_users()
+    record = users.get(username)
+    if not record:
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+    if not bool(record.get("verified")):
+        code = (req.verification_code or "").strip()
+        if not code:
+            raise HTTPException(
+                status_code=403,
+                detail="Cuenta no verificada. Ingresa el código de verificación enviado por correo.",
+            )
+        assert_verification_code(username, record, code)
+        mark_user_verified(record)
+        save_users(users)
+
     token = issue_token(username)
     return {
         "access_token": token,
         "token_type": "bearer",
         "expires_in": settings.auth_token_ttl,
         "user": username,
+        "verified": bool(record.get("verified")),
+    }
+
+
+@app.post("/auth/resend-verification")
+@app.post("/api/auth/resend-verification")
+def resend_verification(req: ResendVerificationRequest):
+    validate_auth_config()
+    validate_smtp_config()
+    username = require_non_empty(req.username, "username")
+    password = require_non_empty(req.password, "password")
+
+    if not verify_user_password(username, password):
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+    users = load_users()
+    record = users.get(username)
+    if not record:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if bool(record.get("verified")):
+        return {"status": "ok", "message": "La cuenta ya está verificada", "verified": True}
+
+    cooldown_remaining = verification_cooldown_remaining(record)
+    if cooldown_remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Espera {cooldown_remaining} segundos antes de reenviar el código",
+        )
+
+    email = str(record.get("email") or "")
+    if not email:
+        raise HTTPException(status_code=400, detail="La cuenta no tiene correo registrado")
+
+    code = apply_new_verification_code(username, record)
+    send_verification_email(username, email, code)
+    save_users(users)
+    return {
+        "status": "ok",
+        "message": "Código reenviado",
+        "user": username,
+        "verified": False,
+        "verification_required": True,
+        "verification_expires_in": VERIFICATION_CODE_TTL_SECONDS,
+        "resend_cooldown_seconds": VERIFICATION_RESEND_COOLDOWN_SECONDS,
     }
 
 
@@ -296,7 +579,10 @@ def change_password(req: ChangePasswordRequest, user: str = Depends(get_current_
         raise HTTPException(status_code=401, detail="Contraseña actual inválida")
 
     users = load_users()
-    users[user] = hash_password(user, new_password)
+    record = users.get(user)
+    if not record:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    record["password_hash"] = hash_password(user, new_password)
     save_users(users)
     return {"status": "ok", "message": "Contraseña actualizada", "user": user}
 
