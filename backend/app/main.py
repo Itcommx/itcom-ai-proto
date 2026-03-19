@@ -56,15 +56,13 @@ def build_settings() -> Settings:
         auth_secret=env.get("AUTH_SECRET", ""),
         auth_token_ttl=int(env.get("AUTH_TOKEN_TTL", "3600")),
         auth_users_path=env.get("AUTH_USERS_PATH", "/app/logs/users.json"),
-        smtp_host=env.get("SMTP_HOST", "mail.itcom.mx"),
-        smtp_port=int(env.get("SMTP_PORT", "465")),
-        smtp_username=env.get("SMTP_USERNAME", "symbiotix@itcom.mx"),
+        smtp_host=env.get("SMTP_HOST", ""),
+        smtp_port=int(env.get("SMTP_PORT", "587")),
+        smtp_username=env.get("SMTP_USERNAME", ""),
         smtp_password=env.get("SMTP_PASSWORD", ""),
-        smtp_from_email=env.get("SMTP_FROM_EMAIL", "symbiotix@itcom.mx"),
+        smtp_from_email=env.get("SMTP_FROM_EMAIL", ""),
         smtp_from_name=env.get("SMTP_FROM_NAME", "Symbiotix"),
-        smtp_use_tls=env.get("SMTP_USE_TLS", "true").strip().lower() in {"1", "true", "yes", "on"},
-        smtp_use_ssl=env.get("SMTP_USE_SSL", "true").strip().lower() in {"1", "true", "yes", "on"},
-    )
+        smtp_use_ssl=env.get("SMTP_USE_SSL", "false").strip().lower() in {"1", "true", "yes", "on"},
 
 
 settings = build_settings()
