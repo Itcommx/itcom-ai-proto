@@ -924,6 +924,13 @@
             <label for="password">Contraseña</label>
             <input id="password" type="password" placeholder="Contraseña" />
           </div>
+          <div class="field-group">
+            <label for="verificationCode">Código de verificación</label>
+            <input id="verificationCode" inputmode="numeric" maxlength="6" placeholder="000000" />
+          </div>
+          <div class="row auth-actions">
+            <button id="resendVerificationBtn" type="button" class="ghost" onclick="resendVerificationCode()">Reenviar código</button>
+          </div>
           <div class="row auth-actions">
             <button type="button" onclick="login()">Iniciar sesión</button>
             <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
@@ -941,6 +948,10 @@
             <div class="field-group">
               <label for="signupPassword">Contraseña</label>
               <input id="signupPassword" type="password" placeholder="Contraseña" />
+            </div>
+            <div class="field-group">
+              <label for="signupEmail">Correo electrónico</label>
+              <input id="signupEmail" type="email" placeholder="correo@empresa.com" />
             </div>
             <div class="field-group">
               <label for="signupConfirmPassword">Confirmar contraseña</label>
@@ -1072,6 +1083,7 @@ const authErrorEl = document.getElementById("authError");
 const authMetaEl = document.getElementById("authMeta");
 const signupPanelEl = document.getElementById("signupPanel");
 const signupFeedbackEl = document.getElementById("signupFeedback");
+const resendVerificationBtnEl = document.getElementById("resendVerificationBtn");
 const sessionUserEl = document.getElementById("sessionUser");
 const changePasswordPanelEl = document.getElementById("changePasswordPanel");
 const changePasswordFeedbackEl = document.getElementById("changePasswordFeedback");
@@ -1096,6 +1108,8 @@ let currentAbortController = null;
 let activeStreamingChatId = null;
 let activeStreamingMessageId = null;
 let isUserMenuOpen = false;
+let resendCooldownTimer = null;
+let resendCooldownEndsAt = 0;
 
 function safeStorageGet(key) {
   try {
@@ -1127,6 +1141,11 @@ function setFeedback(el, text, isError = false) {
   el.innerText = text;
 }
 
+function setAuthMessage(text, isError = false) {
+  authMetaEl.innerText = isError ? "" : text;
+  authErrorEl.innerText = isError ? text : "";
+}
+
 function getUser() {
   return safeStorageGet(USER_KEY) || "";
 }
@@ -1136,6 +1155,25 @@ function authHeaders(extra = {}) {
   const headers = { ...extra };
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
+}
+
+function updateResendButton() {
+  const remainingMs = resendCooldownEndsAt - Date.now();
+  const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+  resendVerificationBtnEl.disabled = remaining > 0;
+  resendVerificationBtnEl.innerText = remaining > 0 ? `Reenviar código (${remaining}s)` : "Reenviar código";
+
+  if (remaining <= 0 && resendCooldownTimer) {
+    clearInterval(resendCooldownTimer);
+    resendCooldownTimer = null;
+  }
+}
+
+function startResendCooldown(seconds = 60) {
+  resendCooldownEndsAt = Date.now() + (seconds * 1000);
+  if (resendCooldownTimer) clearInterval(resendCooldownTimer);
+  updateResendButton();
+  resendCooldownTimer = window.setInterval(updateResendButton, 1000);
 }
 
 function buildEndpointCandidates(path) {
@@ -1226,6 +1264,7 @@ msgEl.addEventListener("input", syncComposerHeight);
 msgEl.addEventListener("paste", () => setTimeout(syncComposerHeight, 0));
 msgEl.addEventListener("keydown", handleComposerKeydown);
 syncComposerHeight();
+updateResendButton();
 
 function nowIso() {
   return new Date().toISOString();
@@ -1561,9 +1600,10 @@ window.handleUserMenuAction = function (action) {
 window.signup = async function () {
   const username = document.getElementById("signupUsername").value.trim();
   const password = document.getElementById("signupPassword").value;
+  const email = document.getElementById("signupEmail").value.trim();
   const confirmPassword = document.getElementById("signupConfirmPassword").value;
 
-  if (!username || !password || !confirmPassword) {
+  if (!username || !password || !email || !confirmPassword) {
     setFeedback(signupFeedbackEl, "Todos los campos son obligatorios", true);
     return;
   }
@@ -1576,7 +1616,7 @@ window.signup = async function () {
     const response = await fetchApi("/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, email }),
     });
 
     const bodyText = await response.text();
@@ -1587,8 +1627,10 @@ window.signup = async function () {
       return;
     }
 
-    setFeedback(signupFeedbackEl, "Cuenta creada. Ya puedes iniciar sesión.");
+    const data = JSON.parse(bodyText);
+    setFeedback(signupFeedbackEl, data.message || "Cuenta creada. Revisa tu correo para validar el código.");
     document.getElementById("username").value = username;
+    startResendCooldown(data.resend_cooldown_seconds || 60);
   } catch (err) {
     setFeedback(signupFeedbackEl, `No se pudo registrar: ${err}`, true);
   }
@@ -1600,6 +1642,7 @@ window.login = async function () {
 
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
+  const verificationCode = document.getElementById("verificationCode").value.trim();
   if (!username || !password) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = "Usuario y contraseña son requeridos";
@@ -1610,7 +1653,7 @@ window.login = async function () {
     const response = await fetchApi("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, verification_code: verificationCode || null }),
     });
 
     const bodyText = await response.text();
@@ -1634,11 +1677,45 @@ window.login = async function () {
     safeStorageSet(USER_KEY, data.user || username);
     authMetaEl.innerText = "";
     metaEl.innerText = "Autenticado";
+    document.getElementById("verificationCode").value = "";
     renderAuthState();
   } catch (err) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = `No se pudo conectar al backend: ${err?.message || err}`;
     console.error("Login error", err);
+  }
+};
+
+window.resendVerificationCode = async function () {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+
+  if (!username || !password) {
+    setAuthMessage("Captura usuario y contraseña para reenviar el código", true);
+    return;
+  }
+
+  setAuthMessage("Reenviando código...");
+  try {
+    const response = await fetchApi("/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setAuthMessage(`Reenvío error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    const data = JSON.parse(bodyText);
+    setAuthMessage(data.message || "Código reenviado. Revisa tu correo.");
+    startResendCooldown(data.resend_cooldown_seconds || 60);
+  } catch (err) {
+    setAuthMessage(`No se pudo reenviar el código: ${err?.message || err}`, true);
   }
 };
 
@@ -1653,6 +1730,7 @@ window.logout = function () {
   authErrorEl.innerText = "";
   metaEl.innerText = "Sesión cerrada";
   changePasswordPanelEl.classList.add("hidden");
+  document.getElementById("verificationCode").value = "";
   syncComposerHeight();
   renderAuthState();
 };
