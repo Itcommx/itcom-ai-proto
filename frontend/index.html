@@ -220,6 +220,12 @@
       min-width: 0;
     }
 
+    .auth-view {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
     .auth-form-head {
       display: flex;
       flex-direction: column;
@@ -253,6 +259,11 @@
       font-size: 0.92rem;
       line-height: 1.65;
       max-width: 32ch;
+    }
+
+    .auth-view-link {
+      color: #b8cbff;
+      font-size: 0.88rem;
     }
 
     .auth-actions {
@@ -908,39 +919,49 @@
     <div id="authShell" class="auth-shell">
       <div class="auth-card">
         <section class="auth-form">
-          <div class="auth-form-head">
-            <span class="auth-kicker">Secure access</span>
-            <div>
-              <h2 style="font-size:1.5rem; font-weight:800;">Iniciar sesión</h2>
-              <div class="auth-form-sub">Accede a Symbiotix.</div>
+          <div id="loginView" class="auth-view">
+            <div class="auth-form-head">
+              <span class="auth-kicker">Secure access</span>
+              <div>
+                <h2 style="font-size:1.5rem; font-weight:800;">Iniciar sesión</h2>
+                <div class="auth-form-sub">Accede a Symbiotix.</div>
+              </div>
             </div>
+
+            <div class="field-group">
+              <label for="username">Usuario</label>
+              <input id="username" placeholder="Usuario" />
+            </div>
+            <div class="field-group">
+              <label for="password">Contraseña</label>
+              <input id="password" type="password" placeholder="Contraseña" />
+            </div>
+            <div class="field-group">
+              <label for="verificationCode">Código de verificación</label>
+              <input id="verificationCode" inputmode="numeric" maxlength="6" placeholder="000000" />
+            </div>
+            <div class="row auth-actions">
+              <button id="resendVerificationBtn" type="button" class="ghost" onclick="resendVerificationCode()">Reenviar código</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" onclick="login()">Iniciar sesión</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
+            </div>
+            <small id="authMeta" class="muted"></small>
+            <small id="authError" class="error"></small>
           </div>
 
-          <div class="field-group">
-            <label for="username">Usuario</label>
-            <input id="username" placeholder="Usuario" />
-          </div>
-          <div class="field-group">
-            <label for="password">Contraseña</label>
-            <input id="password" type="password" placeholder="Contraseña" />
-          </div>
-          <div class="field-group">
-            <label for="verificationCode">Código de verificación</label>
-            <input id="verificationCode" inputmode="numeric" maxlength="6" placeholder="000000" />
-          </div>
-          <div class="row auth-actions">
-            <button id="resendVerificationBtn" type="button" class="ghost" onclick="resendVerificationCode()">Reenviar código</button>
-          </div>
-          <div class="row auth-actions">
-            <button type="button" onclick="login()">Iniciar sesión</button>
-            <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
-          </div>
-          <small id="authMeta" class="muted"></small>
-          <small id="authError" class="error"></small>
+          <div id="signupPanel" class="auth-view hidden">
+            <div class="auth-form-head">
+              <span class="auth-kicker">New account</span>
+              <div>
+                <h2 style="font-size:1.5rem; font-weight:800;">Crear cuenta</h2>
+                <div class="auth-form-sub">Registra tu acceso a Symbiotix.</div>
+              </div>
+            </div>
 
-          <div id="signupPanel" class="panel hidden">
-            <h4>Crear cuenta</h4>
-            <p class="panel-copy">Registra un nuevo usuario.</p>
             <div class="field-group">
               <label for="signupUsername">Nuevo usuario</label>
               <input id="signupUsername" placeholder="Nuevo usuario" />
@@ -957,11 +978,14 @@
               <label for="signupConfirmPassword">Confirmar contraseña</label>
               <input id="signupConfirmPassword" type="password" placeholder="Confirmar contraseña" />
             </div>
-            <div class="row">
+            <div class="row auth-actions">
               <button type="button" onclick="signup()">Registrar</button>
-              <button type="button" class="ghost" onclick="toggleSignup(false)">Cancelar</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="ghost" onclick="toggleSignup(false)">Volver a iniciar sesión</button>
             </div>
             <small id="signupFeedback"></small>
+            <small class="auth-view-link">¿Ya tienes cuenta? Regresa para iniciar sesión.</small>
           </div>
 
         </section>
@@ -1081,6 +1105,7 @@ document.getElementById("api").innerText = API_BASE;
 const pageEl = document.getElementById("page");
 const authErrorEl = document.getElementById("authError");
 const authMetaEl = document.getElementById("authMeta");
+const loginViewEl = document.getElementById("loginView");
 const signupPanelEl = document.getElementById("signupPanel");
 const signupFeedbackEl = document.getElementById("signupFeedback");
 const resendVerificationBtnEl = document.getElementById("resendVerificationBtn");
@@ -1551,6 +1576,7 @@ function renderAuthState() {
   sessionUserEl.innerText = user ? user : "";
 
   if (!loggedIn) {
+    window.toggleSignup(false);
     clearStreamingState();
     return;
   }
@@ -1565,8 +1591,16 @@ function renderAuthState() {
 }
 
 window.toggleSignup = function (show) {
+  loginViewEl.classList.toggle("hidden", show);
   signupPanelEl.classList.toggle("hidden", !show);
-  if (!show) signupFeedbackEl.innerText = "";
+  authErrorEl.innerText = "";
+  authMetaEl.innerText = "";
+  if (!show) {
+    signupFeedbackEl.innerText = "";
+    document.getElementById("username").focus();
+    return;
+  }
+  document.getElementById("signupUsername").focus();
 };
 
 window.toggleChangePassword = function (show) {
