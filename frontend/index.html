@@ -997,6 +997,10 @@
               <input id="signupPassword" type="password" placeholder="Contraseña" />
             </div>
             <div class="field-group">
+              <label for="signupEmail">Correo electrónico</label>
+              <input id="signupEmail" type="email" placeholder="correo@empresa.com" />
+            </div>
+            <div class="field-group">
               <label for="signupConfirmPassword">Confirmar contraseña</label>
               <input id="signupConfirmPassword" type="password" placeholder="Confirmar contraseña" />
             </div>
@@ -1838,6 +1842,7 @@ window.handleUserMenuAction = function (action) {
 window.signup = async function () {
   const username = document.getElementById("signupUsername").value.trim();
   const password = document.getElementById("signupPassword").value;
+  const email = document.getElementById("signupEmail").value.trim();
   const confirmPassword = document.getElementById("signupConfirmPassword").value;
   const email = document.getElementById("signupEmail").value.trim();
 
@@ -1851,7 +1856,7 @@ window.signup = async function () {
   }
 
   try {
-    const response = await fetchApi("/auth/signup", {
+    const response = await fetchApi("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password, email }),
@@ -1903,6 +1908,7 @@ window.login = async function () {
 
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
+  const verificationCode = document.getElementById("verificationCode").value.trim();
   if (!username || !password) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = "Usuario y contraseña son requeridos";
@@ -1980,7 +1986,7 @@ window.resendVerificationCode = async function () {
     const response = await fetchApi("/auth/resend-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, verification_code: verificationCode || null }),
     });
 
     const bodyText = await response.text();
@@ -2156,7 +2162,7 @@ window.changePassword = async function () {
   }
 
   try {
-    const response = await fetchApi("/auth/change-password", {
+    const response = await fetchApi("/api/auth/change-password", {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
