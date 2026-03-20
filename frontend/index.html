@@ -1844,7 +1844,6 @@ window.signup = async function () {
   const password = document.getElementById("signupPassword").value;
   const email = document.getElementById("signupEmail").value.trim();
   const confirmPassword = document.getElementById("signupConfirmPassword").value;
-  const email = document.getElementById("signupEmail").value.trim();
 
   if (!username || !password || !email || !confirmPassword) {
     setFeedback(signupFeedbackEl, "Todos los campos son obligatorios", true);
@@ -2049,26 +2048,6 @@ window.resendVerificationCode = async function () {
   }
 };
 
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, verification_code: verificationCode || null }),
-    });
-
-    const bodyText = await response.text();
-    if (!response.ok) {
-      let detail = bodyText;
-      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
-      setFeedback(verifyFeedbackEl, `Reenvío error (${response.status}): ${detail}`, true);
-      return;
-    }
-
-    const data = JSON.parse(bodyText);
-    setFeedback(verifyFeedbackEl, data.message || "Código reenviado. Revisa tu correo.");
-    startResendCooldown(data.resend_cooldown_seconds || 60);
-  } catch (err) {
-    setFeedback(verifyFeedbackEl, `No se pudo reenviar el código: ${err?.message || err}`, true);
-  }
-};
 
 window.requestPasswordReset = async function () {
   const email = document.getElementById("recoveryEmail").value.trim();
