@@ -266,6 +266,36 @@
       font-size: 0.88rem;
     }
 
+    .auth-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .auth-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(4, 8, 18, 0.74);
+      backdrop-filter: blur(14px);
+    }
+
+    .auth-modal-card {
+      position: relative;
+      width: min(440px, 100%);
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(180deg, rgba(10, 16, 30, 0.96), rgba(8, 13, 27, 0.94));
+      box-shadow: var(--shadow-xl);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
     .auth-actions {
       justify-content: center;
       gap: 12px;
@@ -1026,10 +1056,6 @@
               <input id="recoveryEmail" type="email" placeholder="correo@empresa.com" />
             </div>
             <div class="field-group">
-              <label for="recoveryCode">Código de verificación</label>
-              <input id="recoveryCode" inputmode="numeric" maxlength="6" placeholder="000000" />
-            </div>
-            <div class="field-group">
               <label for="recoveryNewPassword">Nueva contraseña</label>
               <input id="recoveryNewPassword" type="password" placeholder="Nueva contraseña" />
             </div>
@@ -1038,10 +1064,7 @@
               <input id="recoveryConfirmPassword" type="password" placeholder="Confirmar nueva contraseña" />
             </div>
             <div class="row auth-actions">
-              <button id="resendRecoveryBtn" type="button" class="ghost" onclick="requestPasswordReset()">Reenviar código</button>
-            </div>
-            <div class="row auth-actions">
-              <button type="button" onclick="resetPasswordWithCode()">Restablecer contraseña</button>
+              <button type="button" onclick="requestPasswordReset()">Restablecer contraseña</button>
             </div>
             <div class="row auth-actions">
               <button type="button" class="ghost" onclick="showLoginView()">Volver a iniciar sesión</button>
@@ -1050,6 +1073,31 @@
           </div>
 
         </section>
+      </div>
+    </div>
+
+    <div id="recoveryModal" class="auth-modal hidden" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle">
+      <div class="auth-modal-backdrop"></div>
+      <div class="auth-modal-card">
+        <div class="auth-form-head" style="margin-bottom:0;">
+          <span class="auth-kicker">Verification code</span>
+          <div>
+            <h2 id="recoveryModalTitle" style="font-size:1.25rem; font-weight:800;">Introduce el código que hemos enviado a tu correo</h2>
+            <div class="auth-form-sub">Confirma el código para finalizar el cambio de contraseña.</div>
+          </div>
+        </div>
+        <small id="recoveryModalSummary" class="muted"></small>
+        <div class="field-group">
+          <label for="recoveryModalCode">Código de verificación</label>
+          <input id="recoveryModalCode" inputmode="numeric" maxlength="6" placeholder="000000" />
+        </div>
+        <div class="row auth-actions">
+          <button id="resendRecoveryBtn" type="button" class="ghost" onclick="resendPasswordResetCode()">Reenviar código</button>
+        </div>
+        <div class="row auth-actions">
+          <button type="button" onclick="confirmPasswordResetCode()">Confirmar código</button>
+        </div>
+        <small id="recoveryModalFeedback"></small>
       </div>
     </div>
 
@@ -1175,6 +1223,9 @@ const verifyFeedbackEl = document.getElementById("verifyFeedback");
 const resendVerificationBtnEl = document.getElementById("resendVerificationBtn");
 const recoveryViewEl = document.getElementById("recoveryView");
 const recoveryFeedbackEl = document.getElementById("recoveryFeedback");
+const recoveryModalEl = document.getElementById("recoveryModal");
+const recoveryModalSummaryEl = document.getElementById("recoveryModalSummary");
+const recoveryModalFeedbackEl = document.getElementById("recoveryModalFeedback");
 const resendRecoveryBtnEl = document.getElementById("resendRecoveryBtn");
 const sessionUserEl = document.getElementById("sessionUser");
 const changePasswordPanelEl = document.getElementById("changePasswordPanel");
@@ -1206,6 +1257,11 @@ let recoveryCooldownTimer = null;
 let recoveryCooldownEndsAt = 0;
 let currentAuthView = "login";
 let pendingVerification = { username: "", password: "", email: "" };
+let recoveryFlow = {
+  state: "idle",
+  email: "",
+  password: "",
+};
 
 function safeStorageGet(key) {
   try {
@@ -1269,6 +1325,25 @@ function updateVerificationSummary() {
   if (pendingVerification.username) parts.push(`Usuario: ${pendingVerification.username}`);
   if (pendingVerification.email) parts.push(`Correo: ${pendingVerification.email}`);
   verifySummaryEl.innerText = parts.join(" · ");
+}
+
+function setRecoveryState(state, message = "", isError = false) {
+  recoveryFlow.state = state;
+  if (message) setFeedback(recoveryFeedbackEl, message, isError);
+}
+
+function openRecoveryModal(message = "") {
+  recoveryModalSummaryEl.innerText = recoveryFlow.email ? `Correo: ${recoveryFlow.email}` : "";
+  if (message) setFeedback(recoveryModalFeedbackEl, message);
+  else recoveryModalFeedbackEl.innerText = "";
+  recoveryModalEl.classList.remove("hidden");
+  document.getElementById("recoveryModalCode").focus();
+}
+
+function closeRecoveryModal() {
+  recoveryModalEl.classList.add("hidden");
+  recoveryModalFeedbackEl.innerText = "";
+  document.getElementById("recoveryModalCode").value = "";
 }
 
 function getUser() {
@@ -1711,9 +1786,6 @@ function renderAuthState() {
 }
 
 window.toggleSignup = function (show) {
-window.toggleSignup = function (show) {
-  setAuthView(show ? "register" : "login");
-};
   authErrorEl.innerText = "";
   authMetaEl.innerText = "";
   if (!show) {
@@ -1727,11 +1799,14 @@ window.toggleSignup = function (show) {
 window.showLoginView = function () {
   authErrorEl.innerText = "";
   authMetaEl.innerText = "";
+  closeRecoveryModal();
   setAuthView("login");
 };
 
 window.showRecoveryView = function () {
   recoveryFeedbackEl.innerText = "";
+  closeRecoveryModal();
+  setRecoveryState("idle");
   document.getElementById("recoveryEmail").value = document.getElementById("signupEmail").value.trim() || document.getElementById("recoveryEmail").value;
   setAuthView("recovery");
 };
@@ -1808,7 +1883,7 @@ window.signup = async function () {
 };
 
 async function completeLogin(username, password, verificationCode = null) {
-  const response = await fetchApi("/api/auth/login", {
+  const response = await fetchApi("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password, verification_code: verificationCode || null }),
@@ -1932,13 +2007,24 @@ window.resendVerificationCode = async function () {
 
 window.requestPasswordReset = async function () {
   const email = document.getElementById("recoveryEmail").value.trim();
-  if (!email) {
-    setFeedback(recoveryFeedbackEl, "Ingresa tu correo electrónico", true);
+  const newPassword = document.getElementById("recoveryNewPassword").value;
+  const confirmPassword = document.getElementById("recoveryConfirmPassword").value;
+
+  if (!email || !newPassword || !confirmPassword) {
+    setFeedback(recoveryFeedbackEl, "Todos los campos son obligatorios", true);
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    setFeedback(recoveryFeedbackEl, "Nueva contraseña y confirmación no coinciden", true);
+    return;
+  }
+  if (recoveryFlow.state === "requesting_code" || recoveryFlow.state === "resetting_password") {
     return;
   }
 
+  setRecoveryState("requesting_code", "Enviando código...");
   try {
-    const response = await fetchApi("/api/auth/request-password-reset", {
+    const response = await fetchApi("/auth/request-password-reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -1948,56 +2034,100 @@ window.requestPasswordReset = async function () {
     if (!response.ok) {
       let detail = bodyText;
       try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
-      setFeedback(recoveryFeedbackEl, `Recuperación error (${response.status}): ${detail}`, true);
+      setRecoveryState("error", `Recuperación error (${response.status}): ${detail}`, true);
       return;
     }
 
     const data = JSON.parse(bodyText);
-    setFeedback(recoveryFeedbackEl, data.message || "Código de recuperación enviado.");
+    recoveryFlow = { state: "awaiting_code", email, password: newPassword };
+    openRecoveryModal(data.message || "Introduce el código que hemos enviado a tu correo");
     startRecoveryCooldown(data.resend_cooldown_seconds || 60);
   } catch (err) {
-    setFeedback(recoveryFeedbackEl, `No se pudo enviar el código: ${err?.message || err}`, true);
+    setRecoveryState("error", `No se pudo enviar el código: ${err?.message || err}`, true);
   }
 };
 
-window.resetPasswordWithCode = async function () {
-  const email = document.getElementById("recoveryEmail").value.trim();
-  const verificationCode = document.getElementById("recoveryCode").value.trim();
-  const newPassword = document.getElementById("recoveryNewPassword").value;
-  const confirmPassword = document.getElementById("recoveryConfirmPassword").value;
-
-  if (!email || !verificationCode || !newPassword || !confirmPassword) {
-    setFeedback(recoveryFeedbackEl, "Todos los campos son obligatorios", true);
-    return;
-  }
-  if (newPassword !== confirmPassword) {
-    setFeedback(recoveryFeedbackEl, "Nueva contraseña y confirmación no coinciden", true);
+window.resendPasswordResetCode = async function () {
+  if (!recoveryFlow.email) {
+    setFeedback(recoveryModalFeedbackEl, "Captura tu correo y vuelve a iniciar la recuperación.", true);
     return;
   }
 
+  setFeedback(recoveryModalFeedbackEl, "Reenviando código...");
   try {
-    const response = await fetchApi("/api/auth/reset-password", {
+    const response = await fetchApi("/auth/request-password-reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, verification_code: verificationCode, new_password: newPassword }),
+      body: JSON.stringify({ email: recoveryFlow.email }),
     });
 
     const bodyText = await response.text();
     if (!response.ok) {
       let detail = bodyText;
       try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
-      setFeedback(recoveryFeedbackEl, `Restablecimiento error (${response.status}): ${detail}`, true);
+      setFeedback(recoveryModalFeedbackEl, `Reenvío error (${response.status}): ${detail}`, true);
       return;
     }
 
-    setFeedback(recoveryFeedbackEl, "Contraseña restablecida correctamente. Ya puedes iniciar sesión.");
-    document.getElementById("recoveryCode").value = "";
-    document.getElementById("recoveryNewPassword").value = "";
-    document.getElementById("recoveryConfirmPassword").value = "";
-    setAuthView("login");
+    const data = JSON.parse(bodyText);
+    setFeedback(recoveryModalFeedbackEl, data.message || "Código reenviado. Revisa tu correo.");
+    startRecoveryCooldown(data.resend_cooldown_seconds || 60);
   } catch (err) {
-    setFeedback(recoveryFeedbackEl, `No se pudo restablecer la contraseña: ${err?.message || err}`, true);
+    setFeedback(recoveryModalFeedbackEl, `No se pudo reenviar el código: ${err?.message || err}`, true);
   }
+};
+
+window.confirmPasswordResetCode = async function () {
+  const verificationCode = document.getElementById("recoveryModalCode").value.trim();
+  if (!recoveryFlow.email || !recoveryFlow.password) {
+    setFeedback(recoveryModalFeedbackEl, "Inicia de nuevo el flujo de recuperación.", true);
+    return;
+  }
+  if (!verificationCode) {
+    setFeedback(recoveryModalFeedbackEl, "Ingresa el código de verificación", true);
+    return;
+  }
+
+  recoveryFlow.state = "resetting_password";
+  try {
+    const response = await fetchApi("/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: recoveryFlow.email,
+        new_password: recoveryFlow.password,
+        verification_code: verificationCode,
+      }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      recoveryFlow.state = "error";
+      setFeedback(recoveryModalFeedbackEl, `Restablecimiento error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    const data = JSON.parse(bodyText);
+    recoveryFlow.state = "success";
+    setFeedback(recoveryModalFeedbackEl, data.message || "Contraseña cambiada con éxito");
+    setFeedback(recoveryFeedbackEl, data.message || "Contraseña cambiada con éxito");
+    window.setTimeout(() => {
+      document.getElementById("recoveryNewPassword").value = "";
+      document.getElementById("recoveryConfirmPassword").value = "";
+      document.getElementById("recoveryEmail").value = "";
+      closeRecoveryModal();
+      showLoginView();
+    }, 1200);
+  } catch (err) {
+    recoveryFlow.state = "error";
+    setFeedback(recoveryModalFeedbackEl, `No se pudo restablecer la contraseña: ${err?.message || err}`, true);
+  }
+};
+
+window.resetPasswordWithCode = async function () {
+  return window.requestPasswordReset();
 };
 
 window.logout = function () {
