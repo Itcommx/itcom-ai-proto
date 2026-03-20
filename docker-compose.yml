@@ -32,6 +32,14 @@ services:
       - AUTH_SECRET=${AUTH_SECRET}
       - AUTH_TOKEN_TTL=${AUTH_TOKEN_TTL:-3600}
       - AUTH_USERS_PATH=${AUTH_USERS_PATH:-/app/logs/users.json}
+      - SMTP_HOST=${SMTP_HOST:-mail.itcom.mx}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USERNAME=${SMTP_USERNAME:-symbiotix@itcom.mx}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL:-symbiotix@itcom.mx}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Symbiotix}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-true}
+      - SMTP_USE_SSL=${SMTP_USE_SSL:-true}
     volumes:
       - ./logs:/app/logs
     depends_on:
