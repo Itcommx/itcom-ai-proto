@@ -1711,7 +1711,7 @@ function renderAuthState() {
 }
 
 window.toggleSignup = function (show) {
-<window.toggleSignup = function (show) {
+window.toggleSignup = function (show) {
   setAuthView(show ? "register" : "login");
 };
   authErrorEl.innerText = "";
@@ -1997,39 +1997,6 @@ window.resetPasswordWithCode = async function () {
     setAuthView("login");
   } catch (err) {
     setFeedback(recoveryFeedbackEl, `No se pudo restablecer la contraseña: ${err?.message || err}`, true);
-  }
-};
-
-window.resendVerificationCode = async function () {
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value;
-
-  if (!username || !password) {
-    setAuthMessage("Captura usuario y contraseña para reenviar el código", true);
-    return;
-  }
-
-  setAuthMessage("Reenviando código...");
-  try {
-    const response = await fetchApi("/api/auth/resend-verification", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    const bodyText = await response.text();
-    if (!response.ok) {
-      let detail = bodyText;
-      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
-      setAuthMessage(`Reenvío error (${response.status}): ${detail}`, true);
-      return;
-    }
-
-    const data = JSON.parse(bodyText);
-    setAuthMessage(data.message || "Código reenviado. Revisa tu correo.");
-    startResendCooldown(data.resend_cooldown_seconds || 60);
-  } catch (err) {
-    setAuthMessage(`No se pudo reenviar el código: ${err?.message || err}`, true);
   }
 };
 
