@@ -967,6 +967,10 @@
               <input id="signupPassword" type="password" placeholder="Contraseña" />
             </div>
             <div class="field-group">
+              <label for="signupEmail">Correo electrónico</label>
+              <input id="signupEmail" type="email" placeholder="correo@empresa.com" />
+            </div>
+            <div class="field-group">
               <label for="signupConfirmPassword">Confirmar contraseña</label>
               <input id="signupConfirmPassword" type="password" placeholder="Confirmar contraseña" />
             </div>
@@ -1707,6 +1711,9 @@ function renderAuthState() {
 }
 
 window.toggleSignup = function (show) {
+<window.toggleSignup = function (show) {
+  setAuthView(show ? "register" : "login");
+};
   authErrorEl.innerText = "";
   authMetaEl.innerText = "";
   if (!show) {
@@ -1760,6 +1767,7 @@ window.handleUserMenuAction = function (action) {
 window.signup = async function () {
   const username = document.getElementById("signupUsername").value.trim();
   const password = document.getElementById("signupPassword").value;
+  const email = document.getElementById("signupEmail").value.trim();
   const confirmPassword = document.getElementById("signupConfirmPassword").value;
   const email = document.getElementById("signupEmail").value.trim();
 
@@ -1825,6 +1833,7 @@ window.login = async function () {
 
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
+  const verificationCode = document.getElementById("verificationCode").value.trim();
   if (!username || !password) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = "Usuario y contraseña son requeridos";
@@ -1899,10 +1908,10 @@ window.resendVerificationCode = async function () {
 
   setFeedback(verifyFeedbackEl, "Reenviando código...");
   try {
-    const response = await fetchApi("/api/auth/resend-verification", {
+    const response = await fetchApi("/auth/resend-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, verification_code: verificationCode || null }),
     });
 
     const bodyText = await response.text();
@@ -1988,6 +1997,39 @@ window.resetPasswordWithCode = async function () {
     setAuthView("login");
   } catch (err) {
     setFeedback(recoveryFeedbackEl, `No se pudo restablecer la contraseña: ${err?.message || err}`, true);
+  }
+};
+
+window.resendVerificationCode = async function () {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+
+  if (!username || !password) {
+    setAuthMessage("Captura usuario y contraseña para reenviar el código", true);
+    return;
+  }
+
+  setAuthMessage("Reenviando código...");
+  try {
+    const response = await fetchApi("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setAuthMessage(`Reenvío error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    const data = JSON.parse(bodyText);
+    setAuthMessage(data.message || "Código reenviado. Revisa tu correo.");
+    startResendCooldown(data.resend_cooldown_seconds || 60);
+  } catch (err) {
+    setAuthMessage(`No se pudo reenviar el código: ${err?.message || err}`, true);
   }
 };
 

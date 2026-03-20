@@ -160,4 +160,3 @@ Persistencia demo de usuarios:
 - En startup se asegura el usuario inicial definido por `AUTH_USERNAME`/`AUTH_PASSWORD`.
 - Las nuevas cuentas guardan correo, estado de verificación, hash del código y expiración/cooldown de reenvío.
 - Configura SMTP con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS` y `SMTP_USE_SSL`.
-- Defaults sugeridos para el flujo actual: `mail.itcom.mx`, `symbiotix@itcom.mx`, puerto `465`, con `SMTP_USE_TLS=true` y `SMTP_USE_SSL=true`.

@@ -56,15 +56,14 @@ def build_settings() -> Settings:
         auth_secret=env.get("AUTH_SECRET", ""),
         auth_token_ttl=int(env.get("AUTH_TOKEN_TTL", "3600")),
         auth_users_path=env.get("AUTH_USERS_PATH", "/app/logs/users.json"),
-        smtp_host=env.get("SMTP_HOST", "mail.itcom.mx"),
-        smtp_port=int(env.get("SMTP_PORT", "465")),
-        smtp_username=env.get("SMTP_USERNAME", "symbiotix@itcom.mx"),
+        smtp_host=env.get("SMTP_HOST", ""),
+        smtp_port=int(env.get("SMTP_PORT", "587")),
+        smtp_username=env.get("SMTP_USERNAME", ""),
         smtp_password=env.get("SMTP_PASSWORD", ""),
-        smtp_from_email=env.get("SMTP_FROM_EMAIL", "symbiotix@itcom.mx"),
+        smtp_from_email=env.get("SMTP_FROM_EMAIL", ""),
         smtp_from_name=env.get("SMTP_FROM_NAME", "Symbiotix"),
         smtp_use_tls=env.get("SMTP_USE_TLS", "true").strip().lower() in {"1", "true", "yes", "on"},
-        smtp_use_ssl=env.get("SMTP_USE_SSL", "true").strip().lower() in {"1", "true", "yes", "on"},
-    )
+        smtp_use_ssl=env.get("SMTP_USE_SSL", "false").strip().lower() in {"1", "true", "yes", "on"},
 
 
 settings = build_settings()
@@ -391,6 +390,26 @@ def send_smtp_message(email: str, subject: str, lines: list[str], event_name: st
     message["From"] = f"{sender_name} <{settings.smtp_from_email}>"
     message["To"] = email
     message.set_content("\n".join(lines))
+
+
+def send_verification_email(username: str, email: str, code: str):
+    send_smtp_message(
+        email=email,
+        subject="Código de verificación de Symbiotix",
+        lines=[
+            "Symbiotix",
+            "",
+            f"Hola {username},",
+            "",
+            "Recibimos una solicitud para verificar tu cuenta.",
+            f"Tu código de verificación es: {code}",
+            "",
+            "El código expira en aproximadamente 10 minutos.",
+            "Si necesitas uno nuevo, puedes solicitar un reenvío desde la pantalla de acceso.",
+            "Si no solicitaste esta cuenta, ignora este correo.",
+        ],
+        event_name="smtp_verification_sent",
+    )
     try:
         if settings.smtp_use_ssl:
             with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
@@ -609,6 +628,49 @@ def login(req: LoginRequest):
         "expires_in": settings.auth_token_ttl,
         "user": username,
         "verified": bool(record.get("verified")),
+    }
+
+
+@app.post("/auth/resend-verification")
+@app.post("/api/auth/resend-verification")
+def resend_verification(req: ResendVerificationRequest):
+    validate_auth_config()
+    validate_smtp_config()
+    username = require_non_empty(req.username, "username")
+    password = require_non_empty(req.password, "password")
+
+    if not verify_user_password(username, password):
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+    users = load_users()
+    record = users.get(username)
+    if not record:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if bool(record.get("verified")):
+        return {"status": "ok", "message": "La cuenta ya está verificada", "verified": True}
+
+    cooldown_remaining = verification_cooldown_remaining(record)
+    if cooldown_remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Espera {cooldown_remaining} segundos antes de reenviar el código",
+        )
+
+    email = str(record.get("email") or "")
+    if not email:
+        raise HTTPException(status_code=400, detail="La cuenta no tiene correo registrado")
+
+    code = apply_new_verification_code(username, record)
+    send_verification_email(username, email, code)
+    save_users(users)
+    return {
+        "status": "ok",
+        "message": "Código reenviado",
+        "user": username,
+        "verified": False,
+        "verification_required": True,
+        "verification_expires_in": VERIFICATION_CODE_TTL_SECONDS,
+        "resend_cooldown_seconds": VERIFICATION_RESEND_COOLDOWN_SECONDS,
     }
 
 
