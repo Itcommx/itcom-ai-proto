@@ -1844,7 +1844,6 @@ window.signup = async function () {
   const password = document.getElementById("signupPassword").value;
   const email = document.getElementById("signupEmail").value.trim();
   const confirmPassword = document.getElementById("signupConfirmPassword").value;
-  const email = document.getElementById("signupEmail").value.trim();
 
   if (!username || !password || !confirmPassword || !email) {
     setFeedback(signupFeedbackEl, "Todos los campos son obligatorios", true);
@@ -1908,7 +1907,7 @@ window.login = async function () {
 
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
-  const verificationCode = document.getElementById("verificationCode").value.trim();
+  const verificationCode = null;
   if (!username || !password) {
     authMetaEl.innerText = "";
     authErrorEl.innerText = "Usuario y contraseña son requeridos";
