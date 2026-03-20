@@ -1846,7 +1846,7 @@ window.signup = async function () {
   const confirmPassword = document.getElementById("signupConfirmPassword").value;
   const email = document.getElementById("signupEmail").value.trim();
 
-  if (!username || !password || !email || !confirmPassword) {
+  if (!username || !password || !confirmPassword || !email) {
     setFeedback(signupFeedbackEl, "Todos los campos son obligatorios", true);
     return;
   }
@@ -1878,7 +1878,7 @@ window.signup = async function () {
     setAuthView("verify");
     startResendCooldown(data.resend_cooldown_seconds || 60);
   } catch (err) {
-    setFeedback(signupFeedbackEl, `No se pudo registrar: ${err}`, true);
+    setFeedback(signupFeedbackEl, `No se pudo registrar: ${err?.message || err}`, true);
   }
 };
 
@@ -2179,12 +2179,6 @@ window.confirmPasswordResetCode = async function () {
   } catch (err) {
     recoveryFlow.state = "error";
     setFeedback(recoveryModalFeedbackEl, `No se pudo restablecer la contraseña: ${err?.message || err}`, true);
-  }
-};
-
-window.resetPasswordWithCode = async function () {
-  return window.requestPasswordReset();
-}; main
   }
 };
 
