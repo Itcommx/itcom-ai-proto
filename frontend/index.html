@@ -936,18 +936,14 @@
               <label for="password">Contraseña</label>
               <input id="password" type="password" placeholder="Contraseña" />
             </div>
-            <div class="field-group">
-              <label for="verificationCode">Código de verificación</label>
-              <input id="verificationCode" inputmode="numeric" maxlength="6" placeholder="000000" />
-            </div>
-            <div class="row auth-actions">
-              <button id="resendVerificationBtn" type="button" class="ghost" onclick="resendVerificationCode()">Reenviar código</button>
-            </div>
             <div class="row auth-actions">
               <button type="button" onclick="login()">Iniciar sesión</button>
             </div>
             <div class="row auth-actions">
               <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="ghost" onclick="showRecoveryView()">Olvidé mi contraseña</button>
             </div>
             <small id="authMeta" class="muted"></small>
             <small id="authError" class="error"></small>
@@ -978,6 +974,10 @@
               <label for="signupConfirmPassword">Confirmar contraseña</label>
               <input id="signupConfirmPassword" type="password" placeholder="Confirmar contraseña" />
             </div>
+            <div class="field-group">
+              <label for="signupEmail">Correo electrónico</label>
+              <input id="signupEmail" type="email" placeholder="correo@empresa.com" />
+            </div>
             <div class="row auth-actions">
               <button type="button" onclick="signup()">Registrar</button>
             </div>
@@ -986,6 +986,67 @@
             </div>
             <small id="signupFeedback"></small>
             <small class="auth-view-link">¿Ya tienes cuenta? Regresa para iniciar sesión.</small>
+          </div>
+
+          <div id="verifyView" class="auth-view hidden">
+            <div class="auth-form-head">
+              <span class="auth-kicker">Verify account</span>
+              <div>
+                <h2 style="font-size:1.5rem; font-weight:800;">Verificar cuenta</h2>
+                <div class="auth-form-sub">Ingresa el código enviado a tu correo para activar el acceso.</div>
+              </div>
+            </div>
+            <small id="verifySummary" class="muted"></small>
+            <div class="field-group">
+              <label for="verifyCode">Código de verificación</label>
+              <input id="verifyCode" inputmode="numeric" maxlength="6" placeholder="000000" />
+            </div>
+            <div class="row auth-actions">
+              <button type="button" onclick="verifyAccount()">Verificar cuenta</button>
+            </div>
+            <div class="row auth-actions">
+              <button id="resendVerificationBtn" type="button" class="ghost" onclick="resendVerificationCode()">Reenviar código</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="ghost" onclick="showLoginView()">Volver a iniciar sesión</button>
+            </div>
+            <small id="verifyFeedback"></small>
+          </div>
+
+          <div id="recoveryView" class="auth-view hidden">
+            <div class="auth-form-head">
+              <span class="auth-kicker">Password recovery</span>
+              <div>
+                <h2 style="font-size:1.5rem; font-weight:800;">Recuperar contraseña</h2>
+                <div class="auth-form-sub">Solicita un código y restablece tu acceso sin salir de Symbiotix.</div>
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="recoveryEmail">Correo electrónico</label>
+              <input id="recoveryEmail" type="email" placeholder="correo@empresa.com" />
+            </div>
+            <div class="field-group">
+              <label for="recoveryCode">Código de verificación</label>
+              <input id="recoveryCode" inputmode="numeric" maxlength="6" placeholder="000000" />
+            </div>
+            <div class="field-group">
+              <label for="recoveryNewPassword">Nueva contraseña</label>
+              <input id="recoveryNewPassword" type="password" placeholder="Nueva contraseña" />
+            </div>
+            <div class="field-group">
+              <label for="recoveryConfirmPassword">Confirmar nueva contraseña</label>
+              <input id="recoveryConfirmPassword" type="password" placeholder="Confirmar nueva contraseña" />
+            </div>
+            <div class="row auth-actions">
+              <button id="resendRecoveryBtn" type="button" class="ghost" onclick="requestPasswordReset()">Reenviar código</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" onclick="resetPasswordWithCode()">Restablecer contraseña</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="ghost" onclick="showLoginView()">Volver a iniciar sesión</button>
+            </div>
+            <small id="recoveryFeedback"></small>
           </div>
 
         </section>
@@ -1108,7 +1169,13 @@ const authMetaEl = document.getElementById("authMeta");
 const loginViewEl = document.getElementById("loginView");
 const signupPanelEl = document.getElementById("signupPanel");
 const signupFeedbackEl = document.getElementById("signupFeedback");
+const verifyViewEl = document.getElementById("verifyView");
+const verifySummaryEl = document.getElementById("verifySummary");
+const verifyFeedbackEl = document.getElementById("verifyFeedback");
 const resendVerificationBtnEl = document.getElementById("resendVerificationBtn");
+const recoveryViewEl = document.getElementById("recoveryView");
+const recoveryFeedbackEl = document.getElementById("recoveryFeedback");
+const resendRecoveryBtnEl = document.getElementById("resendRecoveryBtn");
 const sessionUserEl = document.getElementById("sessionUser");
 const changePasswordPanelEl = document.getElementById("changePasswordPanel");
 const changePasswordFeedbackEl = document.getElementById("changePasswordFeedback");
@@ -1135,6 +1202,10 @@ let activeStreamingMessageId = null;
 let isUserMenuOpen = false;
 let resendCooldownTimer = null;
 let resendCooldownEndsAt = 0;
+let recoveryCooldownTimer = null;
+let recoveryCooldownEndsAt = 0;
+let currentAuthView = "login";
+let pendingVerification = { username: "", password: "", email: "" };
 
 function safeStorageGet(key) {
   try {
@@ -1171,6 +1242,35 @@ function setAuthMessage(text, isError = false) {
   authErrorEl.innerText = isError ? text : "";
 }
 
+function setAuthView(view) {
+  currentAuthView = view;
+  loginViewEl.classList.toggle("hidden", view !== "login");
+  signupPanelEl.classList.toggle("hidden", view !== "register");
+  verifyViewEl.classList.toggle("hidden", view !== "verify");
+  recoveryViewEl.classList.toggle("hidden", view !== "recovery");
+
+  if (view === "login") {
+    document.getElementById("username").focus();
+    return;
+  }
+  if (view === "register") {
+    document.getElementById("signupUsername").focus();
+    return;
+  }
+  if (view === "verify") {
+    document.getElementById("verifyCode").focus();
+    return;
+  }
+  document.getElementById("recoveryEmail").focus();
+}
+
+function updateVerificationSummary() {
+  const parts = [];
+  if (pendingVerification.username) parts.push(`Usuario: ${pendingVerification.username}`);
+  if (pendingVerification.email) parts.push(`Correo: ${pendingVerification.email}`);
+  verifySummaryEl.innerText = parts.join(" · ");
+}
+
 function getUser() {
   return safeStorageGet(USER_KEY) || "";
 }
@@ -1199,6 +1299,25 @@ function startResendCooldown(seconds = 60) {
   if (resendCooldownTimer) clearInterval(resendCooldownTimer);
   updateResendButton();
   resendCooldownTimer = window.setInterval(updateResendButton, 1000);
+}
+
+function updateRecoveryResendButton() {
+  const remainingMs = recoveryCooldownEndsAt - Date.now();
+  const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+  resendRecoveryBtnEl.disabled = remaining > 0;
+  resendRecoveryBtnEl.innerText = remaining > 0 ? `Reenviar código (${remaining}s)` : "Reenviar código";
+
+  if (remaining <= 0 && recoveryCooldownTimer) {
+    clearInterval(recoveryCooldownTimer);
+    recoveryCooldownTimer = null;
+  }
+}
+
+function startRecoveryCooldown(seconds = 60) {
+  recoveryCooldownEndsAt = Date.now() + (seconds * 1000);
+  if (recoveryCooldownTimer) clearInterval(recoveryCooldownTimer);
+  updateRecoveryResendButton();
+  recoveryCooldownTimer = window.setInterval(updateRecoveryResendButton, 1000);
 }
 
 function buildEndpointCandidates(path) {
@@ -1290,6 +1409,7 @@ msgEl.addEventListener("paste", () => setTimeout(syncComposerHeight, 0));
 msgEl.addEventListener("keydown", handleComposerKeydown);
 syncComposerHeight();
 updateResendButton();
+updateRecoveryResendButton();
 
 function nowIso() {
   return new Date().toISOString();
@@ -1576,7 +1696,7 @@ function renderAuthState() {
   sessionUserEl.innerText = user ? user : "";
 
   if (!loggedIn) {
-    window.toggleSignup(false);
+    setAuthView("login");
     clearStreamingState();
     return;
   }
@@ -1591,16 +1711,29 @@ function renderAuthState() {
 }
 
 window.toggleSignup = function (show) {
-  loginViewEl.classList.toggle("hidden", show);
-  signupPanelEl.classList.toggle("hidden", !show);
+<window.toggleSignup = function (show) {
+  setAuthView(show ? "register" : "login");
+};
   authErrorEl.innerText = "";
   authMetaEl.innerText = "";
   if (!show) {
     signupFeedbackEl.innerText = "";
-    document.getElementById("username").focus();
+    setAuthView("login");
     return;
   }
-  document.getElementById("signupUsername").focus();
+  setAuthView("register");
+};
+
+window.showLoginView = function () {
+  authErrorEl.innerText = "";
+  authMetaEl.innerText = "";
+  setAuthView("login");
+};
+
+window.showRecoveryView = function () {
+  recoveryFeedbackEl.innerText = "";
+  document.getElementById("recoveryEmail").value = document.getElementById("signupEmail").value.trim() || document.getElementById("recoveryEmail").value;
+  setAuthView("recovery");
 };
 
 window.toggleChangePassword = function (show) {
@@ -1636,6 +1769,7 @@ window.signup = async function () {
   const password = document.getElementById("signupPassword").value;
   const email = document.getElementById("signupEmail").value.trim();
   const confirmPassword = document.getElementById("signupConfirmPassword").value;
+  const email = document.getElementById("signupEmail").value.trim();
 
   if (!username || !password || !email || !confirmPassword) {
     setFeedback(signupFeedbackEl, "Todos los campos son obligatorios", true);
@@ -1662,13 +1796,36 @@ window.signup = async function () {
     }
 
     const data = JSON.parse(bodyText);
-    setFeedback(signupFeedbackEl, data.message || "Cuenta creada. Revisa tu correo para validar el código.");
-    document.getElementById("username").value = username;
+    pendingVerification = { username, password, email };
+    updateVerificationSummary();
+    document.getElementById("verifyCode").value = "";
+    setFeedback(verifyFeedbackEl, data.message || "Cuenta creada. Revisa tu correo para validar el código.");
+    setAuthView("verify");
     startResendCooldown(data.resend_cooldown_seconds || 60);
   } catch (err) {
     setFeedback(signupFeedbackEl, `No se pudo registrar: ${err}`, true);
   }
 };
+
+async function completeLogin(username, password, verificationCode = null) {
+  const response = await fetchApi("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password, verification_code: verificationCode || null }),
+  });
+
+  const bodyText = await response.text();
+  if (!response.ok) {
+    let detail = bodyText;
+    try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+    return { ok: false, status: response.status, detail };
+  }
+
+  const data = JSON.parse(bodyText);
+  const token = data.access_token || data.token;
+  if (!token) return { ok: false, status: 500, detail: "Login inválido: respuesta sin token" };
+  return { ok: true, data };
+}
 
 window.login = async function () {
   authErrorEl.innerText = "";
@@ -1684,7 +1841,74 @@ window.login = async function () {
   }
 
   try {
-    const response = await fetchApi("/api/auth/login", {
+    const result = await completeLogin(username, password, null);
+    if (!result.ok) {
+      authMetaEl.innerText = "";
+      if (result.status === 403) {
+        pendingVerification = { username, password, email: "" };
+        updateVerificationSummary();
+        document.getElementById("verifyCode").value = "";
+        setFeedback(verifyFeedbackEl, result.detail, true);
+        setAuthView("verify");
+        return;
+      }
+      authErrorEl.innerText = `Login error (${result.status}): ${result.detail}`;
+      return;
+    }
+
+    const token = result.data.access_token || result.data.token;
+    safeStorageSet(TOKEN_KEY, token);
+    safeStorageSet(USER_KEY, result.data.user || username);
+    authMetaEl.innerText = "";
+    metaEl.innerText = "Autenticado";
+    renderAuthState();
+  } catch (err) {
+    authMetaEl.innerText = "";
+    authErrorEl.innerText = `No se pudo conectar al backend: ${err?.message || err}`;
+    console.error("Login error", err);
+  }
+};
+
+window.verifyAccount = async function () {
+  const verificationCode = document.getElementById("verifyCode").value.trim();
+  if (!pendingVerification.username || !pendingVerification.password) {
+    setFeedback(verifyFeedbackEl, "No hay una verificación pendiente. Vuelve a iniciar sesión.", true);
+    return;
+  }
+  if (!verificationCode) {
+    setFeedback(verifyFeedbackEl, "Ingresa el código de verificación", true);
+    return;
+  }
+
+  try {
+    const result = await completeLogin(pendingVerification.username, pendingVerification.password, verificationCode);
+    if (!result.ok) {
+      setFeedback(verifyFeedbackEl, `Verificación error (${result.status}): ${result.detail}`, true);
+      return;
+    }
+
+    const token = result.data.access_token || result.data.token;
+    safeStorageSet(TOKEN_KEY, token);
+    safeStorageSet(USER_KEY, result.data.user || pendingVerification.username);
+    metaEl.innerText = "Autenticado";
+    document.getElementById("verifyCode").value = "";
+    renderAuthState();
+  } catch (err) {
+    setFeedback(verifyFeedbackEl, `No se pudo verificar la cuenta: ${err?.message || err}`, true);
+  }
+};
+
+window.resendVerificationCode = async function () {
+  const { username, password } = pendingVerification;
+
+  if (!username || !password) {
+    setFeedback(verifyFeedbackEl, "No hay una verificación pendiente. Regresa al inicio de sesión.", true);
+    return;
+  }
+
+  setFeedback(verifyFeedbackEl, "Reenviando código...");
+  try {
+    const response = await fetchApi("/auth/resend-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password, verification_code: verificationCode || null }),
@@ -1694,29 +1918,85 @@ window.login = async function () {
     if (!response.ok) {
       let detail = bodyText;
       try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
-      authMetaEl.innerText = "";
-      authErrorEl.innerText = `Login error (${response.status}): ${detail}`;
+      setFeedback(verifyFeedbackEl, `Reenvío error (${response.status}): ${detail}`, true);
       return;
     }
 
     const data = JSON.parse(bodyText);
-    const token = data.access_token || data.token;
-    if (!token) {
-      authMetaEl.innerText = "";
-      authErrorEl.innerText = "Login inválido: respuesta sin token";
+    setFeedback(verifyFeedbackEl, data.message || "Código reenviado. Revisa tu correo.");
+    startResendCooldown(data.resend_cooldown_seconds || 60);
+  } catch (err) {
+    setFeedback(verifyFeedbackEl, `No se pudo reenviar el código: ${err?.message || err}`, true);
+  }
+};
+
+window.requestPasswordReset = async function () {
+  const email = document.getElementById("recoveryEmail").value.trim();
+  if (!email) {
+    setFeedback(recoveryFeedbackEl, "Ingresa tu correo electrónico", true);
+    return;
+  }
+
+  try {
+    const response = await fetchApi("/api/auth/request-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setFeedback(recoveryFeedbackEl, `Recuperación error (${response.status}): ${detail}`, true);
       return;
     }
 
-    safeStorageSet(TOKEN_KEY, token);
-    safeStorageSet(USER_KEY, data.user || username);
-    authMetaEl.innerText = "";
-    metaEl.innerText = "Autenticado";
-    document.getElementById("verificationCode").value = "";
-    renderAuthState();
+    const data = JSON.parse(bodyText);
+    setFeedback(recoveryFeedbackEl, data.message || "Código de recuperación enviado.");
+    startRecoveryCooldown(data.resend_cooldown_seconds || 60);
   } catch (err) {
-    authMetaEl.innerText = "";
-    authErrorEl.innerText = `No se pudo conectar al backend: ${err?.message || err}`;
-    console.error("Login error", err);
+    setFeedback(recoveryFeedbackEl, `No se pudo enviar el código: ${err?.message || err}`, true);
+  }
+};
+
+window.resetPasswordWithCode = async function () {
+  const email = document.getElementById("recoveryEmail").value.trim();
+  const verificationCode = document.getElementById("recoveryCode").value.trim();
+  const newPassword = document.getElementById("recoveryNewPassword").value;
+  const confirmPassword = document.getElementById("recoveryConfirmPassword").value;
+
+  if (!email || !verificationCode || !newPassword || !confirmPassword) {
+    setFeedback(recoveryFeedbackEl, "Todos los campos son obligatorios", true);
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    setFeedback(recoveryFeedbackEl, "Nueva contraseña y confirmación no coinciden", true);
+    return;
+  }
+
+  try {
+    const response = await fetchApi("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, verification_code: verificationCode, new_password: newPassword }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setFeedback(recoveryFeedbackEl, `Restablecimiento error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    setFeedback(recoveryFeedbackEl, "Contraseña restablecida correctamente. Ya puedes iniciar sesión.");
+    document.getElementById("recoveryCode").value = "";
+    document.getElementById("recoveryNewPassword").value = "";
+    document.getElementById("recoveryConfirmPassword").value = "";
+    setAuthView("login");
+  } catch (err) {
+    setFeedback(recoveryFeedbackEl, `No se pudo restablecer la contraseña: ${err?.message || err}`, true);
   }
 };
 
@@ -1760,11 +2040,12 @@ window.logout = function () {
   safeStorageRemove(USER_KEY);
   conversations = [];
   activeChatId = null;
+  pendingVerification = { username: "", password: "", email: "" };
   authMetaEl.innerText = "";
   authErrorEl.innerText = "";
   metaEl.innerText = "Sesión cerrada";
   changePasswordPanelEl.classList.add("hidden");
-  document.getElementById("verificationCode").value = "";
+  document.getElementById("verifyCode").value = "";
   syncComposerHeight();
   renderAuthState();
 };

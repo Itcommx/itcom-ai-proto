@@ -142,6 +142,12 @@ El backend ahora expone endpoints de autenticación para la UX del frontend:
 - `POST /auth/resend-verification` **y** `POST /api/auth/resend-verification` (alias equivalente)
   - payload: `{ "username": "nuevo", "password": "secreto123" }`
   - respuesta: reenvía un nuevo código si la cuenta sigue sin verificar y no está dentro del cooldown.
+- `POST /auth/request-password-reset` **y** `POST /api/auth/request-password-reset` (alias equivalente)
+  - payload: `{ "email": "nuevo@empresa.com" }`
+  - respuesta: envía un código de recuperación al correo registrado.
+- `POST /auth/reset-password` **y** `POST /api/auth/reset-password` (alias equivalente)
+  - payload: `{ "email": "nuevo@empresa.com", "verification_code": "123456", "new_password": "new12345" }`
+  - respuesta: actualiza la contraseña si el código es correcto y no expiró.
 - `POST /auth/change-password` **y** `POST /api/auth/change-password` (alias equivalente, requiere `Authorization: Bearer <token>`)
   - payload: `{ "current_password": "old", "new_password": "new12345" }`
   - respuesta: `{ "status": "ok", "message": "Contraseña actualizada", "user": "..." }`
@@ -153,4 +159,4 @@ Persistencia demo de usuarios:
 - Se usa `AUTH_USERS_PATH` (default `/app/logs/users.json`).
 - En startup se asegura el usuario inicial definido por `AUTH_USERNAME`/`AUTH_PASSWORD`.
 - Las nuevas cuentas guardan correo, estado de verificación, hash del código y expiración/cooldown de reenvío.
-- - Configura SMTP con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS` y `SMTP_USE_SSL`.
+- Configura SMTP con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS` y `SMTP_USE_SSL`.
