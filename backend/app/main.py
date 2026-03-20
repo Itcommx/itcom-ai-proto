@@ -661,7 +661,15 @@ def request_password_reset(req: PasswordResetRequest):
     validate_auth_config()
     validate_smtp_config()
     email = validate_email(req.email)
-    username, record = find_user_by_email(email)
+    users = load_users()
+    username = None
+    record = None
+    for candidate_username, candidate_record in users.items():
+        if str(candidate_record.get("email") or "").strip().lower() == email:
+            username = candidate_username
+            record = candidate_record
+            break
+
     if not username or not record:
         raise HTTPException(status_code=404, detail="No existe una cuenta asociada a ese correo")
 
@@ -673,7 +681,6 @@ def request_password_reset(req: PasswordResetRequest):
         )
 
     code = apply_new_password_reset_code(email, record)
-    users = load_users()
     users[username] = record
     send_password_reset_email(username, email, code)
     save_users(users)
