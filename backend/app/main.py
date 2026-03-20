@@ -64,7 +64,7 @@ def build_settings() -> Settings:
         smtp_from_name=env.get("SMTP_FROM_NAME", "Symbiotix"),
         smtp_use_tls=env.get("SMTP_USE_TLS", "true").strip().lower() in {"1", "true", "yes", "on"},
         smtp_use_ssl=env.get("SMTP_USE_SSL", "false").strip().lower() in {"1", "true", "yes", "on"},
-
+)
 
 settings = build_settings()
 app = FastAPI(title=settings.app_name)
