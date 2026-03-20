@@ -655,6 +655,49 @@ def resend_verification(req: ResendVerificationRequest):
     }
 
 
+@app.post("/auth/resend-verification")
+@app.post("/api/auth/resend-verification")
+def resend_verification(req: ResendVerificationRequest):
+    validate_auth_config()
+    validate_smtp_config()
+    username = require_non_empty(req.username, "username")
+    password = require_non_empty(req.password, "password")
+
+    if not verify_user_password(username, password):
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+    users = load_users()
+    record = users.get(username)
+    if not record:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if bool(record.get("verified")):
+        return {"status": "ok", "message": "La cuenta ya está verificada", "verified": True}
+
+    cooldown_remaining = verification_cooldown_remaining(record)
+    if cooldown_remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Espera {cooldown_remaining} segundos antes de reenviar el código",
+        )
+
+    email = str(record.get("email") or "")
+    if not email:
+        raise HTTPException(status_code=400, detail="La cuenta no tiene correo registrado")
+
+    code = apply_new_verification_code(username, record)
+    send_verification_email(username, email, code)
+    save_users(users)
+    return {
+        "status": "ok",
+        "message": "Código reenviado",
+        "user": username,
+        "verified": False,
+        "verification_required": True,
+        "verification_expires_in": VERIFICATION_CODE_TTL_SECONDS,
+        "resend_cooldown_seconds": VERIFICATION_RESEND_COOLDOWN_SECONDS,
+    }
+
+
 @app.post("/auth/request-password-reset")
 @app.post("/api/auth/request-password-reset")
 def request_password_reset(req: PasswordResetRequest):
