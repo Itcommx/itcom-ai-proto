@@ -64,7 +64,8 @@ def build_settings() -> Settings:
         smtp_from_name=env.get("SMTP_FROM_NAME", "Symbiotix"),
         smtp_use_tls=env.get("SMTP_USE_TLS", "true").strip().lower() in {"1", "true", "yes", "on"},
         smtp_use_ssl=env.get("SMTP_USE_SSL", "false").strip().lower() in {"1", "true", "yes", "on"},
-)
+    )
+
 
 settings = build_settings()
 app = FastAPI(title=settings.app_name)
@@ -390,26 +391,6 @@ def send_smtp_message(email: str, subject: str, lines: list[str], event_name: st
     message["From"] = f"{sender_name} <{settings.smtp_from_email}>"
     message["To"] = email
     message.set_content("\n".join(lines))
-
-
-def send_verification_email(username: str, email: str, code: str):
-    send_smtp_message(
-        email=email,
-        subject="Código de verificación de Symbiotix",
-        lines=[
-            "Symbiotix",
-            "",
-            f"Hola {username},",
-            "",
-            "Recibimos una solicitud para verificar tu cuenta.",
-            f"Tu código de verificación es: {code}",
-            "",
-            "El código expira en aproximadamente 10 minutos.",
-            "Si necesitas uno nuevo, puedes solicitar un reenvío desde la pantalla de acceso.",
-            "Si no solicitaste esta cuenta, ignora este correo.",
-        ],
-        event_name="smtp_verification_sent",
-    )
     try:
         if settings.smtp_use_ssl:
             with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
@@ -723,7 +704,15 @@ def request_password_reset(req: PasswordResetRequest):
     validate_auth_config()
     validate_smtp_config()
     email = validate_email(req.email)
-    username, record = find_user_by_email(email)
+    users = load_users()
+    username = None
+    record = None
+    for candidate_username, candidate_record in users.items():
+        if str(candidate_record.get("email") or "").strip().lower() == email:
+            username = candidate_username
+            record = candidate_record
+            break
+
     if not username or not record:
         raise HTTPException(status_code=404, detail="No existe una cuenta asociada a ese correo")
 
@@ -735,7 +724,6 @@ def request_password_reset(req: PasswordResetRequest):
         )
 
     code = apply_new_password_reset_code(email, record)
-    users = load_users()
     users[username] = record
     send_password_reset_email(username, email, code)
     save_users(users)

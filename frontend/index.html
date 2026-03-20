@@ -1844,6 +1844,7 @@ window.signup = async function () {
   const password = document.getElementById("signupPassword").value;
   const email = document.getElementById("signupEmail").value.trim();
   const confirmPassword = document.getElementById("signupConfirmPassword").value;
+  const email = document.getElementById("signupEmail").value.trim();
 
   if (!username || !password || !email || !confirmPassword) {
     setFeedback(signupFeedbackEl, "Todos los campos son obligatorios", true);
@@ -2017,14 +2018,20 @@ window.verifyAccount = async function () {
 };
 
 window.resendVerificationCode = async function () {
-  const { username, password } = pendingVerification;
+  const username = pendingVerification.username || document.getElementById("username").value.trim();
+  const password = pendingVerification.password || document.getElementById("password").value;
+  const useVerifyFeedback = Boolean(pendingVerification.username && pendingVerification.password);
+  const report = (message, isError = false) => {
+    if (useVerifyFeedback) setFeedback(verifyFeedbackEl, message, isError);
+    else setAuthMessage(message, isError);
+  };
 
   if (!username || !password) {
-    setFeedback(verifyFeedbackEl, "No hay una verificación pendiente. Regresa al inicio de sesión.", true);
+    report("Captura usuario y contraseña para reenviar el código", true);
     return;
   }
 
-  setFeedback(verifyFeedbackEl, "Reenviando código...");
+  report("Reenviando código...");
   try {
     const response = await fetchApi("/auth/resend-verification", {
       method: "POST",
@@ -2036,18 +2043,23 @@ window.resendVerificationCode = async function () {
     if (!response.ok) {
       let detail = bodyText;
       try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
-      setFeedback(verifyFeedbackEl, `Reenvío error (${response.status}): ${detail}`, true);
+      report(`Reenvío error (${response.status}): ${detail}`, true);
       return;
     }
 
     const data = JSON.parse(bodyText);
-    setFeedback(verifyFeedbackEl, data.message || "Código reenviado. Revisa tu correo.");
+    pendingVerification = {
+      username,
+      password,
+      email: pendingVerification.email || data.email || "",
+    };
+    updateVerificationSummary();
+    report(data.message || "Código reenviado. Revisa tu correo.");
     startResendCooldown(data.resend_cooldown_seconds || 60);
   } catch (err) {
-    setFeedback(verifyFeedbackEl, `No se pudo reenviar el código: ${err?.message || err}`, true);
+    report(`No se pudo reenviar el código: ${err?.message || err}`, true);
   }
 };
-
 
 window.requestPasswordReset = async function () {
   const email = document.getElementById("recoveryEmail").value.trim();
@@ -2172,39 +2184,12 @@ window.confirmPasswordResetCode = async function () {
 
 window.resetPasswordWithCode = async function () {
   return window.requestPasswordReset();
+}; main
+  }
 };
 
-window.resendVerificationCode = async function () {
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value;
-
-  if (!username || !password) {
-    setAuthMessage("Captura usuario y contraseña para reenviar el código", true);
-    return;
-  }
-
-  setAuthMessage("Reenviando código...");
-  try {
-    const response = await fetchApi("/auth/resend-verification", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    const bodyText = await response.text();
-    if (!response.ok) {
-      let detail = bodyText;
-      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
-      setAuthMessage(`Reenvío error (${response.status}): ${detail}`, true);
-      return;
-    }
-
-    const data = JSON.parse(bodyText);
-    setAuthMessage(data.message || "Código reenviado. Revisa tu correo.");
-    startResendCooldown(data.resend_cooldown_seconds || 60);
-  } catch (err) {
-    setAuthMessage(`No se pudo reenviar el código: ${err?.message || err}`, true);
-  }
+window.resetPasswordWithCode = async function () {
+  return window.requestPasswordReset();
 };
 
 window.logout = function () {
