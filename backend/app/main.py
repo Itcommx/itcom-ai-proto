@@ -2,10 +2,12 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import smtplib
 import time
 from collections.abc import Generator
+from dataclasses import dataclass
 from email.message import EmailMessage
 from pathlib import Path
 
