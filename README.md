@@ -161,3 +161,26 @@ Persistencia demo de usuarios:
 - Las nuevas cuentas guardan correo, estado de verificación, hash del código y expiración/cooldown de reenvío.
 - Configura SMTP con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS` y `SMTP_USE_SSL`.
 - Defaults sugeridos para el flujo actual: `mail.itcom.mx`, `symbiotix@itcom.mx`, puerto `465`, con `SMTP_USE_TLS=true` y `SMTP_USE_SSL=true`.
+
+## External sources configuration
+
+La configuración base para futuros conectores externos se carga desde el mismo módulo central de settings del backend y es opcional para no romper el arranque actual.
+
+- Global:
+  - `EXTERNAL_SOURCES_ENABLED=true`
+  - `EXTERNAL_MAX_RESULTS=20`
+  - `EXTERNAL_DEFAULT_LANG=es`
+  - `EXTERNAL_DEFAULT_LOCALE=mx`
+- Proveedores:
+  - `GDELT_ENABLED=true`
+  - `YOUTUBE_ENABLED=true`
+  - `SEARCHAPI_ENABLED=true`
+  - `YOUTUBE_API_KEY=`
+  - `SEARCHAPI_API_KEY=`
+  - `FIRECRAWL_API_KEY=`
+  - `NEWSAPI_KEY=`
+
+Comportamiento esperado:
+- Si una API key no está configurada, el backend sigue arrancando y el proveedor queda marcado como no disponible desde settings.
+- `GDELT` puede quedar disponible solo con sus switches, ya que no requiere API key en esta base.
+- No se exponen secretos en logs; deja las keys reales únicamente en tu `.env` local o en variables del entorno del despliegue.

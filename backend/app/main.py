@@ -16,58 +16,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-
-@dataclass(frozen=True)
-class Settings:
-    app_name: str
-    ollama_url: str
-    ollama_model: str
-    log_path: str
-    num_predict: int
-    ollama_timeout: int
-    ollama_retries: int
-    auth_username: str
-    auth_password: str
-    auth_secret: str
-    auth_token_ttl: int
-    auth_users_path: str
-    smtp_host: str
-    smtp_port: int
-    smtp_username: str
-    smtp_password: str
-    smtp_from_email: str
-    smtp_from_name: str
-    smtp_use_tls: bool
-    smtp_use_ssl: bool
-
-
-def build_settings() -> Settings:
-    env = os.environ
-    return Settings(
-        app_name=env.get("APP_NAME", "ITCOM AI Prototype"),
-        ollama_url=env.get("OLLAMA_URL", "http://localhost:11434"),
-        ollama_model=env.get("OLLAMA_MODEL", "llama3:latest"),
-        log_path=env.get("LOG_PATH", "/app/logs/requests.jsonl"),
-        num_predict=int(env.get("NUM_PREDICT", "1024")),
-        ollama_timeout=int(env.get("OLLAMA_TIMEOUT", "120")),
-        ollama_retries=int(env.get("OLLAMA_RETRIES", "2")),
-        auth_username=env.get("AUTH_USERNAME", ""),
-        auth_password=env.get("AUTH_PASSWORD", ""),
-        auth_secret=env.get("AUTH_SECRET", ""),
-        auth_token_ttl=int(env.get("AUTH_TOKEN_TTL", "3600")),
-        auth_users_path=env.get("AUTH_USERS_PATH", "/app/logs/users.json"),
-        smtp_host=env.get("SMTP_HOST", ""),
-        smtp_port=int(env.get("SMTP_PORT", "587")),
-        smtp_username=env.get("SMTP_USERNAME", ""),
-        smtp_password=env.get("SMTP_PASSWORD", ""),
-        smtp_from_email=env.get("SMTP_FROM_EMAIL", ""),
-        smtp_from_name=env.get("SMTP_FROM_NAME", "Symbiotix"),
-        smtp_use_tls=env.get("SMTP_USE_TLS", "true").strip().lower() in {"1", "true", "yes", "on"},
-        smtp_use_ssl=env.get("SMTP_USE_SSL", "false").strip().lower() in {"1", "true", "yes", "on"},
-    )
-
-
-settings = build_settings()
+from app.config import settings
 app = FastAPI(title=settings.app_name)
 
 
