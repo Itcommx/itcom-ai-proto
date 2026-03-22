@@ -184,3 +184,24 @@ Comportamiento esperado:
 - Si una API key no está configurada, el backend sigue arrancando y el proveedor queda marcado como no disponible desde settings.
 - `GDELT` puede quedar disponible solo con sus switches, ya que no requiere API key en esta base.
 - No se exponen secretos en logs; deja las keys reales únicamente en tu `.env` local o en variables del entorno del despliegue.
+
+### GDELT search endpoint
+
+Primer conector externo habilitado:
+
+- `POST /api/external/search/gdelt`
+  - payload mínimo: `{ "query": "nearshoring mexico" }`
+  - payload extendido: `{ "query": "nearshoring mexico", "max_results": 10, "language": "es", "start_datetime": "20250301000000", "end_datetime": "20250315235959" }`
+  - respuesta: `{ "provider": "gdelt", "query": "...", "count": 0, "results": [] }`
+
+Cada elemento de `results` se normaliza con este formato base:
+- `provider`
+- `source_type`
+- `query`
+- `title`
+- `url`
+- `domain`
+- `published_at`
+- `snippet`
+- `language`
+- `raw_json`

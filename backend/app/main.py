@@ -17,7 +17,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.config import settings
+from app.routers.external_sources import router as external_sources_router
 app = FastAPI(title=settings.app_name)
+app.include_router(external_sources_router)
 
 
 class ChatRequest(BaseModel):
