@@ -3,68 +3,58 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
+import smtplib
 import time
 from collections.abc import Generator
-from dataclasses import dataclass
+from email.message import EmailMessage
 from pathlib import Path
+import logging
 
 import requests
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-
-@dataclass(frozen=True)
-class Settings:
-    app_name: str
-    ollama_url: str
-    ollama_model: str
-    log_path: str
-    num_predict: int
-    ollama_timeout: int
-    ollama_retries: int
-    auth_username: str
-    auth_password: str
-    auth_secret: str
-    auth_token_ttl: int
-    auth_users_path: str
-
-
-def build_settings() -> Settings:
-    env = os.environ
-    return Settings(
-        app_name=env.get("APP_NAME", "ITCOM AI Prototype"),
-        ollama_url=env.get("OLLAMA_URL", "http://localhost:11434"),
-        ollama_model=env.get("OLLAMA_MODEL", "llama3:latest"),
-        log_path=env.get("LOG_PATH", "/app/logs/requests.jsonl"),
-        num_predict=int(env.get("NUM_PREDICT", "1024")),
-        ollama_timeout=int(env.get("OLLAMA_TIMEOUT", "120")),
-        ollama_retries=int(env.get("OLLAMA_RETRIES", "2")),
-        auth_username=env.get("AUTH_USERNAME", ""),
-        auth_password=env.get("AUTH_PASSWORD", ""),
-        auth_secret=env.get("AUTH_SECRET", ""),
-        auth_token_ttl=int(env.get("AUTH_TOKEN_TTL", "3600")),
-        auth_users_path=env.get("AUTH_USERS_PATH", "/app/logs/users.json"),
-    )
-
-
-settings = build_settings()
+from app.config import settings
+from app.integrations.gdelt import GDELTClient, GDELTRequestError
+from app.routers.external_sources import router as external_sources_router
 app = FastAPI(title=settings.app_name)
+app.include_router(external_sources_router)
+logger = logging.getLogger(__name__)
 
 
 class ChatRequest(BaseModel):
     message: str
     user: str | None = "board-demo"
+    mode: str | None = None
 
 
 class LoginRequest(BaseModel):
     username: str
     password: str
+    verification_code: str | None = None
 
 
 class SignupRequest(BaseModel):
     username: str
     password: str
+    email: str
+
+
+class ResendVerificationRequest(BaseModel):
+    username: str
+    password: str
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    email: str
+    verification_code: str
+    new_password: str
 
 
 class ChangePasswordRequest(BaseModel):
@@ -72,8 +62,42 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+VERIFICATION_CODE_TTL_SECONDS = 600
+VERIFICATION_RESEND_COOLDOWN_SECONDS = 60
+
+
 def build_prompt(message: str) -> str:
     return f"Responde en español, claro y breve.\nPregunta: {message}\n"
+
+
+def build_news_grounded_prompt(message: str, articles: list[dict[str, object]]) -> str:
+    system_instruction = (
+        "Responde únicamente con la información de los artículos proporcionados.\n"
+        "No inventes noticias.\n"
+        "No uses conocimiento previo.\n"
+        "Incluye fecha y fuente por cada nota.\n"
+        "Si no hay artículos recientes suficientes, indícalo."
+    )
+    article_lines = []
+    for index, article in enumerate(articles, start=1):
+        article_lines.append(
+            "\n".join(
+                [
+                    f"[Artículo {index}]",
+                    f"Título: {article.get('title') or 'Sin título'}",
+                    f"Fecha: {article.get('published_at') or 'Sin fecha'}",
+                    f"Fuente: {article.get('domain') or article.get('url') or 'Sin fuente'}",
+                    f"Resumen: {article.get('snippet') or ''}",
+                    f"URL: {article.get('url') or ''}",
+                ]
+            )
+        )
+    compiled_articles = "\n\n".join(article_lines) if article_lines else "No hay artículos."
+    return (
+        f"{system_instruction}\n\n"
+        f"Pregunta del usuario: {message}\n\n"
+        f"Artículos recientes:\n{compiled_articles}\n"
+    )
 
 
 def is_truncated(done_reason: str | None) -> bool:
@@ -120,10 +144,10 @@ def ollama_error_message(last_error: Exception | None) -> str:
     return f"Error llamando a Ollama tras {settings.ollama_retries} intentos: {last_error}"
 
 
-def build_generate_payload(message: str, stream: bool) -> dict:
+def build_generate_payload(message: str, stream: bool, prompt_override: str | None = None) -> dict:
     return {
         "model": settings.ollama_model,
-        "prompt": build_prompt(message),
+        "prompt": prompt_override if prompt_override is not None else build_prompt(message),
         "stream": stream,
         "options": {"num_predict": settings.num_predict, "temperature": 0.2},
     }
@@ -180,11 +204,59 @@ def hash_password(username: str, password: str) -> str:
     return hashlib.sha256(salted.encode("utf-8")).hexdigest()
 
 
+def hash_verification_code(username: str, code: str) -> str:
+    salted = f"{username}:{code}:{settings.auth_secret}:verification"
+    return hashlib.sha256(salted.encode("utf-8")).hexdigest()
+
+
+def hash_password_reset_code(email: str, code: str) -> str:
+    salted = f"{email}:{code}:{settings.auth_secret}:password_reset"
+    return hashlib.sha256(salted.encode("utf-8")).hexdigest()
+
+
 def users_path() -> Path:
     return Path(settings.auth_users_path)
 
 
-def load_users() -> dict[str, str]:
+def normalize_user_record(username: str, raw: object) -> dict[str, object] | None:
+    if isinstance(raw, str):
+        return {
+            "password_hash": raw,
+            "email": username if "@" in username else "",
+            "verified": True,
+            "verification_code_hash": None,
+            "verification_expires_at": None,
+            "verification_last_sent_at": None,
+            "password_reset_code_hash": None,
+            "password_reset_expires_at": None,
+            "password_reset_last_sent_at": None,
+            "created_at": now_ts(),
+            "verified_at": now_ts(),
+        }
+
+    if not isinstance(raw, dict):
+        return None
+
+    password_hash = str(raw.get("password_hash") or raw.get("password") or "").strip()
+    if not password_hash:
+        return None
+
+    return {
+        "password_hash": password_hash,
+        "email": str(raw.get("email") or "").strip().lower(),
+        "verified": bool(raw.get("verified", False)),
+        "verification_code_hash": raw.get("verification_code_hash"),
+        "verification_expires_at": raw.get("verification_expires_at"),
+        "verification_last_sent_at": raw.get("verification_last_sent_at"),
+        "password_reset_code_hash": raw.get("password_reset_code_hash"),
+        "password_reset_expires_at": raw.get("password_reset_expires_at"),
+        "password_reset_last_sent_at": raw.get("password_reset_last_sent_at"),
+        "created_at": int(raw.get("created_at") or now_ts()),
+        "verified_at": raw.get("verified_at"),
+    }
+
+
+def load_users() -> dict[str, dict[str, object]]:
     path = users_path()
     if not path.exists():
         return {}
@@ -192,32 +264,244 @@ def load_users() -> dict[str, str]:
         data = json.load(f)
     if not isinstance(data, dict):
         return {}
-    return {str(k): str(v) for k, v in data.items()}
+    users: dict[str, dict[str, object]] = {}
+    for key, value in data.items():
+        username = str(key)
+        record = normalize_user_record(username, value)
+        if record:
+            users[username] = record
+    return users
 
 
-def save_users(users: dict[str, str]):
+def save_users(users: dict[str, dict[str, object]]):
     path = users_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
 
 
+def validate_email(email: str) -> str:
+    clean = require_non_empty(email, "email").lower()
+    if "@" not in clean or "." not in clean.rsplit("@", 1)[-1]:
+        raise HTTPException(status_code=400, detail="email inválido")
+    return clean
+
+
+def make_user_record(username: str, password: str, email: str, *, verified: bool) -> dict[str, object]:
+    now = now_ts()
+    return {
+        "password_hash": hash_password(username, password),
+        "email": email,
+        "verified": verified,
+        "verification_code_hash": None,
+        "verification_expires_at": None,
+        "verification_last_sent_at": None,
+        "password_reset_code_hash": None,
+        "password_reset_expires_at": None,
+        "password_reset_last_sent_at": None,
+        "created_at": now,
+        "verified_at": now if verified else None,
+    }
+
+
 def ensure_default_user():
     users = load_users()
     if settings.auth_username and settings.auth_username not in users:
-        users[settings.auth_username] = hash_password(
+        users[settings.auth_username] = make_user_record(
             settings.auth_username,
             settings.auth_password,
+            settings.auth_username if "@" in settings.auth_username else "",
+            verified=True,
         )
         save_users(users)
 
 
+def get_user_record(username: str) -> dict[str, object] | None:
+    return load_users().get(username)
+
+
 def verify_user_password(username: str, password: str) -> bool:
-    users = load_users()
-    stored = users.get(username)
-    if not stored:
+    record = get_user_record(username)
+    if not record:
         return False
+    stored = str(record.get("password_hash") or "")
     return hmac.compare_digest(stored, hash_password(username, password))
+
+
+def validate_smtp_config():
+    required = {
+        "SMTP_HOST": settings.smtp_host,
+        "SMTP_PORT": settings.smtp_port,
+        "SMTP_USERNAME": settings.smtp_username,
+        "SMTP_PASSWORD": settings.smtp_password,
+        "SMTP_FROM_EMAIL": settings.smtp_from_email,
+        "SMTP_FROM_NAME": settings.smtp_from_name,
+    }
+    missing = [key for key, value in required.items() if value in {"", 0, None}]
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail=f"SMTP no configurado: define {', '.join(missing)}",
+        )
+
+
+def generate_verification_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def apply_new_verification_code(username: str, record: dict[str, object]) -> str:
+    code = generate_verification_code()
+    record["verification_code_hash"] = hash_verification_code(username, code)
+    record["verification_expires_at"] = now_ts() + VERIFICATION_CODE_TTL_SECONDS
+    record["verification_last_sent_at"] = now_ts()
+    record["verified"] = False
+    record["verified_at"] = None
+    return code
+
+
+def apply_new_password_reset_code(email: str, record: dict[str, object]) -> str:
+    code = generate_verification_code()
+    record["password_reset_code_hash"] = hash_password_reset_code(email, code)
+    record["password_reset_expires_at"] = now_ts() + VERIFICATION_CODE_TTL_SECONDS
+    record["password_reset_last_sent_at"] = now_ts()
+    return code
+
+
+def send_smtp_message(email: str, subject: str, lines: list[str], event_name: str):
+    validate_smtp_config()
+    message = EmailMessage()
+    sender_name = settings.smtp_from_name.strip() or settings.app_name
+    message["Subject"] = subject
+    message["From"] = f"{sender_name} <{settings.smtp_from_email}>"
+    message["To"] = email
+    message.set_content("\n".join(lines))
+    try:
+        if settings.smtp_use_ssl:
+            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
+                smtp.login(settings.smtp_username, settings.smtp_password)
+                smtp.send_message(message)
+        else:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
+                smtp.ehlo()
+                if settings.smtp_use_tls:
+                    smtp.starttls()
+                    smtp.ehlo()
+                smtp.login(settings.smtp_username, settings.smtp_password)
+                smtp.send_message(message)
+    except (smtplib.SMTPException, OSError) as exc:
+        append_log_event(
+            {
+                "event": event_name,
+                "smtp_host": settings.smtp_host,
+                "smtp_port": settings.smtp_port,
+                "smtp_use_tls": settings.smtp_use_tls,
+                "smtp_use_ssl": settings.smtp_use_ssl,
+                "to": email,
+                "error": str(exc),
+            }
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudo enviar el correo solicitado. Verifica la configuración SMTP e intenta nuevamente.",
+        )
+
+
+def send_verification_email(username: str, email: str, code: str):
+    send_smtp_message(
+        email,
+        "Código de verificación de Symbiotix",
+        [
+            "Symbiotix",
+            "",
+            f"Hola {username},",
+            "",
+            "Recibimos una solicitud para verificar tu cuenta.",
+            f"Tu código de verificación es: {code}",
+            "",
+            "El código expira en aproximadamente 10 minutos.",
+            "Si necesitas uno nuevo, puedes solicitar un reenvío desde la pantalla de acceso.",
+            "Si no solicitaste esta cuenta, ignora este correo.",
+        ],
+        "smtp_verification_failed",
+    )
+
+
+def send_password_reset_email(username: str, email: str, code: str):
+    send_smtp_message(
+        email,
+        "Restablece tu contraseña de Symbiotix",
+        [
+            "Symbiotix",
+            "",
+            f"Hola {username},",
+            "",
+            "Recibimos una solicitud para restablecer tu contraseña.",
+            f"Tu código de verificación es: {code}",
+            "",
+            "El código expira en aproximadamente 10 minutos.",
+            "Usa este código junto con tu nueva contraseña en la pantalla de recuperación.",
+            "Si no solicitaste este cambio, ignora este correo.",
+        ],
+        "smtp_password_reset_failed",
+    )
+
+
+def assert_verification_code(username: str, record: dict[str, object], code: str):
+    stored_hash = str(record.get("verification_code_hash") or "")
+    expires_at = int(record.get("verification_expires_at") or 0)
+    if not stored_hash or not expires_at:
+        raise HTTPException(status_code=400, detail="Solicita un nuevo código de verificación")
+    if now_ts() > expires_at:
+        raise HTTPException(status_code=401, detail="El código de verificación expiró")
+    candidate = hash_verification_code(username, code)
+    if not hmac.compare_digest(stored_hash, candidate):
+        raise HTTPException(status_code=401, detail="Código de verificación inválido")
+
+
+def mark_user_verified(record: dict[str, object]):
+    record["verified"] = True
+    record["verified_at"] = now_ts()
+    record["verification_code_hash"] = None
+    record["verification_expires_at"] = None
+
+
+def verification_cooldown_remaining(record: dict[str, object]) -> int:
+    last_sent_at = int(record.get("verification_last_sent_at") or 0)
+    remaining = (last_sent_at + VERIFICATION_RESEND_COOLDOWN_SECONDS) - now_ts()
+    return max(0, remaining)
+
+
+def assert_password_reset_code(email: str, record: dict[str, object], code: str):
+    stored_hash = str(record.get("password_reset_code_hash") or "")
+    expires_at = int(record.get("password_reset_expires_at") or 0)
+    if not stored_hash or not expires_at:
+        raise HTTPException(status_code=400, detail="Solicita un nuevo código de recuperación")
+    if now_ts() > expires_at:
+        raise HTTPException(status_code=401, detail="El código de recuperación expiró")
+    candidate = hash_password_reset_code(email, code)
+    if not hmac.compare_digest(stored_hash, candidate):
+        raise HTTPException(status_code=401, detail="Código de recuperación inválido")
+
+
+def clear_password_reset_state(record: dict[str, object]):
+    record["password_reset_code_hash"] = None
+    record["password_reset_expires_at"] = None
+    record["password_reset_last_sent_at"] = None
+
+
+def password_reset_cooldown_remaining(record: dict[str, object]) -> int:
+    last_sent_at = int(record.get("password_reset_last_sent_at") or 0)
+    remaining = (last_sent_at + VERIFICATION_RESEND_COOLDOWN_SECONDS) - now_ts()
+    return max(0, remaining)
+
+
+def find_user_by_email(email: str) -> tuple[str, dict[str, object]] | tuple[None, None]:
+    normalized_email = validate_email(email)
+    users = load_users()
+    for username, record in users.items():
+        if str(record.get("email") or "").strip().lower() == normalized_email:
+            return username, record
+    return None, None
 
 
 def require_non_empty(value: str, field_name: str) -> str:
@@ -237,6 +521,35 @@ def get_current_user(authorization: str | None = Header(default=None)) -> str:
     return parse_token(token)
 
 
+def fetch_recent_news_articles(message: str) -> list[dict[str, object]]:
+    if not settings.external_sources_enabled:
+        raise HTTPException(status_code=503, detail="Las fuentes externas están deshabilitadas")
+    if not settings.gdelt_enabled:
+        raise HTTPException(status_code=503, detail="GDELT está deshabilitado")
+
+    effective_max_results = min(10, settings.external_max_results)
+    effective_lang = settings.external_default_lang.strip().lower()
+    timespan_hours = GDELTClient.default_timespan_hours(message)
+    client = GDELTClient(timeout=settings.ollama_timeout)
+    logger.info(
+        "news_grounded_gdelt_params query=%s max_results=%s language=%s timespan_hours=%s",
+        message,
+        effective_max_results,
+        effective_lang,
+        timespan_hours,
+    )
+    try:
+        results = client.search(
+            query=message,
+            max_results=effective_max_results,
+            language=effective_lang,
+            timespan_hours=timespan_hours,
+        )
+    except GDELTRequestError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return results
+
+
 @app.on_event("startup")
 def startup_seed_users():
     validate_auth_config()
@@ -247,8 +560,10 @@ def startup_seed_users():
 @app.post("/api/auth/signup")
 def signup(req: SignupRequest):
     validate_auth_config()
+    validate_smtp_config()
     username = require_non_empty(req.username, "username")
     password = require_non_empty(req.password, "password")
+    email = validate_email(req.email)
 
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="password debe tener al menos 6 caracteres")
@@ -257,10 +572,21 @@ def signup(req: SignupRequest):
     if username in users:
         raise HTTPException(status_code=409, detail="El usuario ya existe")
 
-    users[username] = hash_password(username, password)
+    users[username] = make_user_record(username, password, email, verified=False)
+    code = apply_new_verification_code(username, users[username])
+    send_verification_email(username, email, code)
     save_users(users)
 
-    return {"status": "ok", "message": "Cuenta creada", "user": username}
+    return {
+        "status": "ok",
+        "message": "Cuenta creada. Revisa tu correo para validar el código.",
+        "user": username,
+        "email": email,
+        "verified": False,
+        "verification_required": True,
+        "verification_expires_in": VERIFICATION_CODE_TTL_SECONDS,
+        "resend_cooldown_seconds": VERIFICATION_RESEND_COOLDOWN_SECONDS,
+    }
 
 
 @app.post("/auth/login")
@@ -273,13 +599,142 @@ def login(req: LoginRequest):
     if not verify_user_password(username, password):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
+    users = load_users()
+    record = users.get(username)
+    if not record:
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+    if not bool(record.get("verified")):
+        code = (req.verification_code or "").strip()
+        if not code:
+            raise HTTPException(
+                status_code=403,
+                detail="Cuenta no verificada. Ingresa el código de verificación enviado por correo.",
+            )
+        assert_verification_code(username, record, code)
+        mark_user_verified(record)
+        save_users(users)
+
     token = issue_token(username)
     return {
         "access_token": token,
         "token_type": "bearer",
         "expires_in": settings.auth_token_ttl,
         "user": username,
+        "verified": bool(record.get("verified")),
     }
+
+
+@app.post("/auth/resend-verification")
+@app.post("/api/auth/resend-verification")
+def resend_verification(req: ResendVerificationRequest):
+    validate_auth_config()
+    validate_smtp_config()
+    username = require_non_empty(req.username, "username")
+    password = require_non_empty(req.password, "password")
+
+    if not verify_user_password(username, password):
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+    users = load_users()
+    record = users.get(username)
+    if not record:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if bool(record.get("verified")):
+        return {"status": "ok", "message": "La cuenta ya está verificada", "verified": True}
+
+    cooldown_remaining = verification_cooldown_remaining(record)
+    if cooldown_remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Espera {cooldown_remaining} segundos antes de reenviar el código",
+        )
+
+    email = str(record.get("email") or "")
+    if not email:
+        raise HTTPException(status_code=400, detail="La cuenta no tiene correo registrado")
+
+    code = apply_new_verification_code(username, record)
+    send_verification_email(username, email, code)
+    save_users(users)
+    return {
+        "status": "ok",
+        "message": "Código reenviado",
+        "user": username,
+        "verified": False,
+        "verification_required": True,
+        "verification_expires_in": VERIFICATION_CODE_TTL_SECONDS,
+        "resend_cooldown_seconds": VERIFICATION_RESEND_COOLDOWN_SECONDS,
+    }
+
+
+@app.post("/auth/request-password-reset")
+@app.post("/api/auth/request-password-reset")
+def request_password_reset(req: PasswordResetRequest):
+    validate_auth_config()
+    validate_smtp_config()
+    email = validate_email(req.email)
+    users = load_users()
+    username = None
+    record = None
+    for candidate_username, candidate_record in users.items():
+        if str(candidate_record.get("email") or "").strip().lower() == email:
+            username = candidate_username
+            record = candidate_record
+            break
+
+    if not username or not record:
+        raise HTTPException(status_code=404, detail="No existe una cuenta asociada a ese correo")
+
+    cooldown_remaining = password_reset_cooldown_remaining(record)
+    if cooldown_remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Espera {cooldown_remaining} segundos antes de reenviar el código",
+        )
+
+    code = apply_new_password_reset_code(email, record)
+    users[username] = record
+    send_password_reset_email(username, email, code)
+    save_users(users)
+    return {
+        "status": "ok",
+        "message": "Código de recuperación enviado",
+        "email": email,
+        "resend_cooldown_seconds": VERIFICATION_RESEND_COOLDOWN_SECONDS,
+        "verification_expires_in": VERIFICATION_CODE_TTL_SECONDS,
+    }
+
+
+@app.post("/auth/reset-password")
+@app.post("/api/auth/reset-password")
+def reset_password(req: PasswordResetConfirmRequest):
+    validate_auth_config()
+    email = validate_email(req.email)
+    verification_code = require_non_empty(req.verification_code, "verification_code")
+    new_password = require_non_empty(req.new_password, "new_password")
+
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="new_password debe tener al menos 6 caracteres")
+
+    users = load_users()
+    username = None
+    record = None
+    for candidate_username, candidate_record in users.items():
+        if str(candidate_record.get("email") or "").strip().lower() == email:
+            username = candidate_username
+            record = candidate_record
+            break
+
+    if not username or not record:
+        raise HTTPException(status_code=404, detail="No existe una cuenta asociada a ese correo")
+
+    assert_password_reset_code(email, record, verification_code)
+    record["password_hash"] = hash_password(username, new_password)
+    clear_password_reset_state(record)
+    users[username] = record
+    save_users(users)
+    return {"status": "ok", "message": "Contraseña restablecida correctamente", "user": username}
 
 
 @app.post("/auth/change-password")
@@ -296,7 +751,10 @@ def change_password(req: ChangePasswordRequest, user: str = Depends(get_current_
         raise HTTPException(status_code=401, detail="Contraseña actual inválida")
 
     users = load_users()
-    users[user] = hash_password(user, new_password)
+    record = users.get(user)
+    if not record:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    record["password_hash"] = hash_password(user, new_password)
     save_users(users)
     return {"status": "ok", "message": "Contraseña actualizada", "user": user}
 
@@ -325,7 +783,42 @@ def chat(req: ChatRequest, user: str = Depends(get_current_user)):
     if not msg:
         raise HTTPException(status_code=400, detail="message vacío")
 
-    payload = build_generate_payload(msg, stream=False)
+    prompt_override = None
+    mode = (req.mode or "default").strip().lower()
+    if mode == "news_grounded":
+        recent_articles = fetch_recent_news_articles(msg)
+        if not recent_articles:
+            answer = "No hay artículos recientes suficientes para responder con la ventana solicitada."
+            took_ms = int((time.time() - t0) * 1000)
+            log_chat_event(
+                endpoint="/chat",
+                user=user,
+                prompt_chars=len(msg),
+                took_ms=took_ms,
+                answer_length=len(answer),
+                truncated=False,
+                done_reason=None,
+                error=None,
+            )
+            return {
+                "answer": answer,
+                "took_ms": took_ms,
+                "model": settings.ollama_model,
+                "truncated": False,
+                "done_reason": None,
+                "user": user,
+                "mode": mode,
+                "articles_count": 0,
+            }
+        prompt_override = build_news_grounded_prompt(msg, recent_articles)
+        logger.info(
+            "news_grounded_llm_context question=%s articles_count=%s context_chars=%s",
+            msg,
+            len(recent_articles),
+            len(prompt_override),
+        )
+
+    payload = build_generate_payload(msg, stream=False, prompt_override=prompt_override)
 
     last_error = None
     data = None
@@ -381,6 +874,7 @@ def chat(req: ChatRequest, user: str = Depends(get_current_user)):
         "truncated": truncated,
         "done_reason": done_reason,
         "user": user,
+        "mode": mode,
     }
 
 

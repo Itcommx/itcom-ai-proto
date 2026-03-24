@@ -81,7 +81,11 @@
       position: relative;
       z-index: 1;
       min-height: 100vh;
+      height: 100vh;
       padding: 22px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .floating-nav {
@@ -180,7 +184,8 @@
     .auth-shell {
       width: min(1320px, 100%);
       margin: 0 auto;
-      min-height: calc(100vh - 136px);
+      flex: 1;
+      min-height: 0;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -213,6 +218,12 @@
       flex-direction: column;
       gap: 14px;
       min-width: 0;
+    }
+
+    .auth-view {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
 
     .auth-form-head {
@@ -250,6 +261,41 @@
       max-width: 32ch;
     }
 
+    .auth-view-link {
+      color: #b8cbff;
+      font-size: 0.88rem;
+    }
+
+    .auth-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .auth-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(4, 8, 18, 0.74);
+      backdrop-filter: blur(14px);
+    }
+
+    .auth-modal-card {
+      position: relative;
+      width: min(440px, 100%);
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(180deg, rgba(10, 16, 30, 0.96), rgba(8, 13, 27, 0.94));
+      box-shadow: var(--shadow-xl);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
     .auth-actions {
       justify-content: center;
       gap: 12px;
@@ -275,10 +321,12 @@
     .app-shell {
       width: min(1320px, 100%);
       margin: 0 auto;
-      min-height: calc(100vh - 136px);
+      flex: 1;
+      min-height: 0;
       display: grid;
       grid-template-columns: 320px minmax(0, 1fr);
       gap: 18px;
+      overflow: hidden;
     }
 
     .sidebar,
@@ -327,6 +375,7 @@
       border-bottom: 0;
       margin-top: auto;
       background: rgba(12, 18, 34, 0.72);
+      overflow: visible;
     }
 
     .sidebar-topline,
@@ -432,10 +481,12 @@
     }
 
     .sidebar-user-card {
+      position: relative;
       border: 1px solid rgba(129, 155, 220, 0.16);
       border-radius: var(--radius-md);
       padding: 14px;
       background: rgba(15, 24, 45, 0.74);
+      overflow: visible;
     }
 
     .session-user {
@@ -444,9 +495,95 @@
       font-size: 1rem;
     }
 
+    .user-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .user-card-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .user-menu {
+      position: relative;
+      flex: none;
+    }
+
+    .icon-button {
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, rgba(24, 39, 72, 0.92), rgba(15, 24, 46, 0.92));
+      border: 1px solid rgba(124, 162, 255, 0.26);
+      box-shadow: 0 10px 24px rgba(20, 32, 65, 0.24);
+    }
+
+    .icon-button:hover,
+    .icon-button:focus-visible,
+    .icon-button[aria-expanded="true"] {
+      border-color: rgba(103, 166, 255, 0.6);
+      box-shadow: var(--ring);
+      filter: brightness(1.06);
+    }
+
+    .icon-button svg {
+      width: 18px;
+      height: 18px;
+      color: #dce7ff;
+      filter: drop-shadow(0 0 10px rgba(103, 166, 255, 0.24));
+    }
+
+    .user-dropdown {
+      position: absolute;
+      right: 0;
+      bottom: calc(100% + 10px);
+      min-width: 220px;
+      max-width: min(220px, calc(100vw - 48px));
+      padding: 10px;
+      border-radius: 18px;
+      border: 1px solid rgba(103, 166, 255, 0.24);
+      background: linear-gradient(180deg, rgba(12, 20, 39, 0.98), rgba(8, 13, 28, 0.96));
+      box-shadow: 0 24px 50px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(22px);
+      z-index: 40;
+    }
+
+    .user-dropdown[hidden] {
+      display: none;
+    }
+
+    .user-dropdown-item {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+      border-radius: 14px;
+      padding: 11px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      box-shadow: none;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .user-dropdown-item:hover,
+    .user-dropdown-item:focus-visible {
+      background: rgba(24, 39, 72, 0.72);
+      border-color: rgba(103, 166, 255, 0.26);
+      transform: none;
+      filter: none;
+    }
+
     .main {
       display: grid;
       grid-template-rows: minmax(0, 1fr) auto;
+      min-height: 0;
     }
 
     .messages {
@@ -708,7 +845,7 @@
 
       .auth-shell,
       .app-shell {
-        min-height: auto;
+        min-height: 0;
       }
 
       .app-shell {
@@ -716,11 +853,11 @@
       }
 
       .sidebar {
-        min-height: 360px;
+        min-height: 0;
       }
 
       .main {
-        min-height: 760px;
+        min-height: 0;
       }
 
       .workspace-head {
@@ -799,7 +936,7 @@
       <div class="brand">
         <div class="brand-mark"></div>
         <div class="brand-copy">
-          <span class="brand-title">ITCOM AI Proto</span>
+          <span class="brand-title">Symbiotix</span>
           <span class="brand-subtitle">Enterprise AI Workspace</span>
         </div>
       </div>
@@ -812,32 +949,45 @@
     <div id="authShell" class="auth-shell">
       <div class="auth-card">
         <section class="auth-form">
-          <div class="auth-form-head">
-            <span class="auth-kicker">Secure access</span>
-            <div>
-              <h2 style="font-size:1.5rem; font-weight:800;">Iniciar sesión</h2>
-              <div class="auth-form-sub">Accede a Symbiotix.</div>
+          <div id="loginView" class="auth-view">
+            <div class="auth-form-head">
+              <span class="auth-kicker">Secure access</span>
+              <div>
+                <h2 style="font-size:1.5rem; font-weight:800;">Iniciar sesión</h2>
+                <div class="auth-form-sub">Accede a Symbiotix.</div>
+              </div>
             </div>
+
+            <div class="field-group">
+              <label for="username">Usuario</label>
+              <input id="username" placeholder="Usuario" />
+            </div>
+            <div class="field-group">
+              <label for="password">Contraseña</label>
+              <input id="password" type="password" placeholder="Contraseña" />
+            </div>
+            <div class="row auth-actions">
+              <button type="button" onclick="login()">Iniciar sesión</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="ghost" onclick="showRecoveryView()">Olvidé mi contraseña</button>
+            </div>
+            <small id="authMeta" class="muted"></small>
+            <small id="authError" class="error"></small>
           </div>
 
-          <div class="field-group">
-            <label for="username">Usuario</label>
-            <input id="username" placeholder="Usuario" />
-          </div>
-          <div class="field-group">
-            <label for="password">Contraseña</label>
-            <input id="password" type="password" placeholder="Contraseña" />
-          </div>
-          <div class="row auth-actions">
-            <button type="button" onclick="login()">Iniciar sesión</button>
-            <button type="button" class="secondary" onclick="toggleSignup(true)">Crear cuenta</button>
-          </div>
-          <small id="authMeta" class="muted"></small>
-          <small id="authError" class="error"></small>
+          <div id="signupPanel" class="auth-view hidden">
+            <div class="auth-form-head">
+              <span class="auth-kicker">New account</span>
+              <div>
+                <h2 style="font-size:1.5rem; font-weight:800;">Crear cuenta</h2>
+                <div class="auth-form-sub">Registra tu acceso a Symbiotix.</div>
+              </div>
+            </div>
 
-          <div id="signupPanel" class="panel hidden">
-            <h4>Crear cuenta</h4>
-            <p class="panel-copy">Registra un nuevo usuario.</p>
             <div class="field-group">
               <label for="signupUsername">Nuevo usuario</label>
               <input id="signupUsername" placeholder="Nuevo usuario" />
@@ -850,14 +1000,100 @@
               <label for="signupConfirmPassword">Confirmar contraseña</label>
               <input id="signupConfirmPassword" type="password" placeholder="Confirmar contraseña" />
             </div>
-            <div class="row">
+            <div class="field-group">
+              <label for="signupEmail">Correo electrónico</label>
+              <input id="signupEmail" type="email" placeholder="correo@empresa.com" />
+            </div>
+            <div class="row auth-actions">
               <button type="button" onclick="signup()">Registrar</button>
-              <button type="button" class="ghost" onclick="toggleSignup(false)">Cancelar</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="ghost" onclick="toggleSignup(false)">Volver a iniciar sesión</button>
             </div>
             <small id="signupFeedback"></small>
+            <small class="auth-view-link">¿Ya tienes cuenta? Regresa para iniciar sesión.</small>
+          </div>
+
+          <div id="verifyView" class="auth-view hidden">
+            <div class="auth-form-head">
+              <span class="auth-kicker">Verify account</span>
+              <div>
+                <h2 style="font-size:1.5rem; font-weight:800;">Verificar cuenta</h2>
+                <div class="auth-form-sub">Ingresa el código enviado a tu correo para activar el acceso.</div>
+              </div>
+            </div>
+            <small id="verifySummary" class="muted"></small>
+            <div class="field-group">
+              <label for="verifyCode">Código de verificación</label>
+              <input id="verifyCode" inputmode="numeric" maxlength="6" placeholder="000000" />
+            </div>
+            <div class="row auth-actions">
+              <button type="button" onclick="verifyAccount()">Verificar cuenta</button>
+            </div>
+            <div class="row auth-actions">
+              <button id="resendVerificationBtn" type="button" class="ghost" onclick="resendVerificationCode()">Reenviar código</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="ghost" onclick="showLoginView()">Volver a iniciar sesión</button>
+            </div>
+            <small id="verifyFeedback"></small>
+          </div>
+
+          <div id="recoveryView" class="auth-view hidden">
+            <div class="auth-form-head">
+              <span class="auth-kicker">Password recovery</span>
+              <div>
+                <h2 style="font-size:1.5rem; font-weight:800;">Recuperar contraseña</h2>
+                <div class="auth-form-sub">Solicita un código y restablece tu acceso sin salir de Symbiotix.</div>
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="recoveryEmail">Correo electrónico</label>
+              <input id="recoveryEmail" type="email" placeholder="correo@empresa.com" />
+            </div>
+            <div class="field-group">
+              <label for="recoveryNewPassword">Nueva contraseña</label>
+              <input id="recoveryNewPassword" type="password" placeholder="Nueva contraseña" />
+            </div>
+            <div class="field-group">
+              <label for="recoveryConfirmPassword">Confirmar nueva contraseña</label>
+              <input id="recoveryConfirmPassword" type="password" placeholder="Confirmar nueva contraseña" />
+            </div>
+            <div class="row auth-actions">
+              <button type="button" onclick="requestPasswordReset()">Restablecer contraseña</button>
+            </div>
+            <div class="row auth-actions">
+              <button type="button" class="ghost" onclick="showLoginView()">Volver a iniciar sesión</button>
+            </div>
+            <small id="recoveryFeedback"></small>
           </div>
 
         </section>
+      </div>
+    </div>
+
+    <div id="recoveryModal" class="auth-modal hidden" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle">
+      <div class="auth-modal-backdrop"></div>
+      <div class="auth-modal-card">
+        <div class="auth-form-head" style="margin-bottom:0;">
+          <span class="auth-kicker">Verification code</span>
+          <div>
+            <h2 id="recoveryModalTitle" style="font-size:1.25rem; font-weight:800;">Introduce el código que hemos enviado a tu correo</h2>
+            <div class="auth-form-sub">Confirma el código para finalizar el cambio de contraseña.</div>
+          </div>
+        </div>
+        <small id="recoveryModalSummary" class="muted"></small>
+        <div class="field-group">
+          <label for="recoveryModalCode">Código de verificación</label>
+          <input id="recoveryModalCode" inputmode="numeric" maxlength="6" placeholder="000000" />
+        </div>
+        <div class="row auth-actions">
+          <button id="resendRecoveryBtn" type="button" class="ghost" onclick="resendPasswordResetCode()">Reenviar código</button>
+        </div>
+        <div class="row auth-actions">
+          <button type="button" onclick="confirmPasswordResetCode()">Confirmar código</button>
+        </div>
+        <small id="recoveryModalFeedback"></small>
       </div>
     </div>
 
@@ -877,11 +1113,31 @@
 
         <div class="sidebar-user">
           <div class="sidebar-user-card">
-            <small class="muted">Usuario activo</small>
-            <div id="sessionUser" class="session-user"></div>
-            <div class="row">
-              <button type="button" class="secondary" onclick="toggleChangePassword(true)">Cambiar contraseña</button>
-              <button type="button" class="ghost" onclick="logout()">Cerrar sesión</button>
+            <div class="user-card-head">
+              <div class="user-card-copy">
+                <small class="muted">Usuario activo</small>
+                <div id="sessionUser" class="session-user"></div>
+              </div>
+              <div class="user-menu">
+                <button
+                  id="userMenuButton"
+                  type="button"
+                  class="icon-button"
+                  aria-label="Abrir menú de usuario"
+                  aria-haspopup="menu"
+                  aria-controls="userMenuDropdown"
+                  aria-expanded="false"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37 1 .608 2.296.07 2.572-1.065Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <div id="userMenuDropdown" class="user-dropdown" role="menu" aria-labelledby="userMenuButton" hidden>
+                  <button type="button" class="user-dropdown-item" role="menuitem" onclick="handleUserMenuAction('changePassword')">Cambiar contraseña</button>
+                  <button type="button" class="user-dropdown-item" role="menuitem" onclick="handleUserMenuAction('logout')">Cerrar sesión</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -954,11 +1210,24 @@ document.getElementById("api").innerText = API_BASE;
 const pageEl = document.getElementById("page");
 const authErrorEl = document.getElementById("authError");
 const authMetaEl = document.getElementById("authMeta");
+const loginViewEl = document.getElementById("loginView");
 const signupPanelEl = document.getElementById("signupPanel");
 const signupFeedbackEl = document.getElementById("signupFeedback");
+const verifyViewEl = document.getElementById("verifyView");
+const verifySummaryEl = document.getElementById("verifySummary");
+const verifyFeedbackEl = document.getElementById("verifyFeedback");
+const resendVerificationBtnEl = document.getElementById("resendVerificationBtn");
+const recoveryViewEl = document.getElementById("recoveryView");
+const recoveryFeedbackEl = document.getElementById("recoveryFeedback");
+const recoveryModalEl = document.getElementById("recoveryModal");
+const recoveryModalSummaryEl = document.getElementById("recoveryModalSummary");
+const recoveryModalFeedbackEl = document.getElementById("recoveryModalFeedback");
+const resendRecoveryBtnEl = document.getElementById("resendRecoveryBtn");
 const sessionUserEl = document.getElementById("sessionUser");
 const changePasswordPanelEl = document.getElementById("changePasswordPanel");
 const changePasswordFeedbackEl = document.getElementById("changePasswordFeedback");
+const userMenuButtonEl = document.getElementById("userMenuButton");
+const userMenuDropdownEl = document.getElementById("userMenuDropdown");
 const chatListEl = document.getElementById("chatList");
 const messagesEl = document.getElementById("messages");
 const msgEl = document.getElementById("msg");
@@ -977,6 +1246,18 @@ let isStreaming = false;
 let currentAbortController = null;
 let activeStreamingChatId = null;
 let activeStreamingMessageId = null;
+let isUserMenuOpen = false;
+let resendCooldownTimer = null;
+let resendCooldownEndsAt = 0;
+let recoveryCooldownTimer = null;
+let recoveryCooldownEndsAt = 0;
+let currentAuthView = "login";
+let pendingVerification = { username: "", password: "", email: "" };
+let recoveryFlow = {
+  state: "idle",
+  email: "",
+  password: "",
+};
 
 function safeStorageGet(key) {
   try {
@@ -1008,6 +1289,59 @@ function setFeedback(el, text, isError = false) {
   el.innerText = text;
 }
 
+function setAuthMessage(text, isError = false) {
+  authMetaEl.innerText = isError ? "" : text;
+  authErrorEl.innerText = isError ? text : "";
+}
+
+function setAuthView(view) {
+  currentAuthView = view;
+  loginViewEl.classList.toggle("hidden", view !== "login");
+  signupPanelEl.classList.toggle("hidden", view !== "register");
+  verifyViewEl.classList.toggle("hidden", view !== "verify");
+  recoveryViewEl.classList.toggle("hidden", view !== "recovery");
+
+  if (view === "login") {
+    document.getElementById("username").focus();
+    return;
+  }
+  if (view === "register") {
+    document.getElementById("signupUsername").focus();
+    return;
+  }
+  if (view === "verify") {
+    document.getElementById("verifyCode").focus();
+    return;
+  }
+  document.getElementById("recoveryEmail").focus();
+}
+
+function updateVerificationSummary() {
+  const parts = [];
+  if (pendingVerification.username) parts.push(`Usuario: ${pendingVerification.username}`);
+  if (pendingVerification.email) parts.push(`Correo: ${pendingVerification.email}`);
+  verifySummaryEl.innerText = parts.join(" · ");
+}
+
+function setRecoveryState(state, message = "", isError = false) {
+  recoveryFlow.state = state;
+  if (message) setFeedback(recoveryFeedbackEl, message, isError);
+}
+
+function openRecoveryModal(message = "") {
+  recoveryModalSummaryEl.innerText = recoveryFlow.email ? `Correo: ${recoveryFlow.email}` : "";
+  if (message) setFeedback(recoveryModalFeedbackEl, message);
+  else recoveryModalFeedbackEl.innerText = "";
+  recoveryModalEl.classList.remove("hidden");
+  document.getElementById("recoveryModalCode").focus();
+}
+
+function closeRecoveryModal() {
+  recoveryModalEl.classList.add("hidden");
+  recoveryModalFeedbackEl.innerText = "";
+  document.getElementById("recoveryModalCode").value = "";
+}
+
 function getUser() {
   return safeStorageGet(USER_KEY) || "";
 }
@@ -1017,6 +1351,44 @@ function authHeaders(extra = {}) {
   const headers = { ...extra };
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
+}
+
+function updateResendButton() {
+  const remainingMs = resendCooldownEndsAt - Date.now();
+  const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+  resendVerificationBtnEl.disabled = remaining > 0;
+  resendVerificationBtnEl.innerText = remaining > 0 ? `Reenviar código (${remaining}s)` : "Reenviar código";
+
+  if (remaining <= 0 && resendCooldownTimer) {
+    clearInterval(resendCooldownTimer);
+    resendCooldownTimer = null;
+  }
+}
+
+function startResendCooldown(seconds = 60) {
+  resendCooldownEndsAt = Date.now() + (seconds * 1000);
+  if (resendCooldownTimer) clearInterval(resendCooldownTimer);
+  updateResendButton();
+  resendCooldownTimer = window.setInterval(updateResendButton, 1000);
+}
+
+function updateRecoveryResendButton() {
+  const remainingMs = recoveryCooldownEndsAt - Date.now();
+  const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+  resendRecoveryBtnEl.disabled = remaining > 0;
+  resendRecoveryBtnEl.innerText = remaining > 0 ? `Reenviar código (${remaining}s)` : "Reenviar código";
+
+  if (remaining <= 0 && recoveryCooldownTimer) {
+    clearInterval(recoveryCooldownTimer);
+    recoveryCooldownTimer = null;
+  }
+}
+
+function startRecoveryCooldown(seconds = 60) {
+  recoveryCooldownEndsAt = Date.now() + (seconds * 1000);
+  if (recoveryCooldownTimer) clearInterval(recoveryCooldownTimer);
+  updateRecoveryResendButton();
+  recoveryCooldownTimer = window.setInterval(updateRecoveryResendButton, 1000);
 }
 
 function buildEndpointCandidates(path) {
@@ -1107,6 +1479,8 @@ msgEl.addEventListener("input", syncComposerHeight);
 msgEl.addEventListener("paste", () => setTimeout(syncComposerHeight, 0));
 msgEl.addEventListener("keydown", handleComposerKeydown);
 syncComposerHeight();
+updateResendButton();
+updateRecoveryResendButton();
 
 function nowIso() {
   return new Date().toISOString();
@@ -1393,6 +1767,7 @@ function renderAuthState() {
   sessionUserEl.innerText = user ? user : "";
 
   if (!loggedIn) {
+    setAuthView("login");
     clearStreamingState();
     return;
   }
@@ -1407,8 +1782,29 @@ function renderAuthState() {
 }
 
 window.toggleSignup = function (show) {
-  signupPanelEl.classList.toggle("hidden", !show);
-  if (!show) signupFeedbackEl.innerText = "";
+  authErrorEl.innerText = "";
+  authMetaEl.innerText = "";
+  if (!show) {
+    signupFeedbackEl.innerText = "";
+    setAuthView("login");
+    return;
+  }
+  setAuthView("register");
+};
+
+window.showLoginView = function () {
+  authErrorEl.innerText = "";
+  authMetaEl.innerText = "";
+  closeRecoveryModal();
+  setAuthView("login");
+};
+
+window.showRecoveryView = function () {
+  recoveryFeedbackEl.innerText = "";
+  closeRecoveryModal();
+  setRecoveryState("idle");
+  document.getElementById("recoveryEmail").value = document.getElementById("signupEmail").value.trim() || document.getElementById("recoveryEmail").value;
+  setAuthView("recovery");
 };
 
 window.toggleChangePassword = function (show) {
@@ -1416,12 +1812,36 @@ window.toggleChangePassword = function (show) {
   if (!show) changePasswordFeedbackEl.innerText = "";
 };
 
+function setUserMenuOpen(open) {
+  isUserMenuOpen = open;
+  userMenuButtonEl.setAttribute("aria-expanded", String(open));
+  userMenuDropdownEl.hidden = !open;
+}
+
+function toggleUserMenu(force) {
+  const nextState = typeof force === "boolean" ? force : !isUserMenuOpen;
+  setUserMenuOpen(nextState);
+}
+
+window.handleUserMenuAction = function (action) {
+  toggleUserMenu(false);
+  if (action === "changePassword") {
+    window.toggleChangePassword(true);
+    document.getElementById("currentPassword").focus();
+    return;
+  }
+  if (action === "logout") {
+    window.logout();
+  }
+};
+
 window.signup = async function () {
   const username = document.getElementById("signupUsername").value.trim();
   const password = document.getElementById("signupPassword").value;
   const confirmPassword = document.getElementById("signupConfirmPassword").value;
+  const email = document.getElementById("signupEmail").value.trim();
 
-  if (!username || !password || !confirmPassword) {
+  if (!username || !password || !confirmPassword || !email) {
     setFeedback(signupFeedbackEl, "Todos los campos son obligatorios", true);
     return;
   }
@@ -1434,7 +1854,7 @@ window.signup = async function () {
     const response = await fetchApi("/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, email }),
     });
 
     const bodyText = await response.text();
@@ -1445,12 +1865,37 @@ window.signup = async function () {
       return;
     }
 
-    setFeedback(signupFeedbackEl, "Cuenta creada. Ya puedes iniciar sesión.");
-    document.getElementById("username").value = username;
+    const data = JSON.parse(bodyText);
+    pendingVerification = { username, password, email };
+    updateVerificationSummary();
+    document.getElementById("verifyCode").value = "";
+    setFeedback(verifyFeedbackEl, data.message || "Cuenta creada. Revisa tu correo para validar el código.");
+    setAuthView("verify");
+    startResendCooldown(data.resend_cooldown_seconds || 60);
   } catch (err) {
-    setFeedback(signupFeedbackEl, `No se pudo registrar: ${err}`, true);
+    setFeedback(signupFeedbackEl, `No se pudo registrar: ${err?.message || err}`, true);
   }
 };
+
+async function completeLogin(username, password, verificationCode = null) {
+  const response = await fetchApi("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password, verification_code: verificationCode || null }),
+  });
+
+  const bodyText = await response.text();
+  if (!response.ok) {
+    let detail = bodyText;
+    try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+    return { ok: false, status: response.status, detail };
+  }
+
+  const data = JSON.parse(bodyText);
+  const token = data.access_token || data.token;
+  if (!token) return { ok: false, status: 500, detail: "Login inválido: respuesta sin token" };
+  return { ok: true, data };
+}
 
 window.login = async function () {
   authErrorEl.innerText = "";
@@ -1465,31 +1910,24 @@ window.login = async function () {
   }
 
   try {
-    const response = await fetchApi("/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    const bodyText = await response.text();
-    if (!response.ok) {
-      let detail = bodyText;
-      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+    const result = await completeLogin(username, password, null);
+    if (!result.ok) {
       authMetaEl.innerText = "";
-      authErrorEl.innerText = `Login error (${response.status}): ${detail}`;
+      if (result.status === 403) {
+        pendingVerification = { username, password, email: "" };
+        updateVerificationSummary();
+        document.getElementById("verifyCode").value = "";
+        setFeedback(verifyFeedbackEl, result.detail, true);
+        setAuthView("verify");
+        return;
+      }
+      authErrorEl.innerText = `Login error (${result.status}): ${result.detail}`;
       return;
     }
 
-    const data = JSON.parse(bodyText);
-    const token = data.access_token || data.token;
-    if (!token) {
-      authMetaEl.innerText = "";
-      authErrorEl.innerText = "Login inválido: respuesta sin token";
-      return;
-    }
-
+    const token = result.data.access_token || result.data.token;
     safeStorageSet(TOKEN_KEY, token);
-    safeStorageSet(USER_KEY, data.user || username);
+    safeStorageSet(USER_KEY, result.data.user || username);
     authMetaEl.innerText = "";
     metaEl.innerText = "Autenticado";
     renderAuthState();
@@ -1500,16 +1938,213 @@ window.login = async function () {
   }
 };
 
+window.verifyAccount = async function () {
+  const verificationCode = document.getElementById("verifyCode").value.trim();
+  if (!pendingVerification.username || !pendingVerification.password) {
+    setFeedback(verifyFeedbackEl, "No hay una verificación pendiente. Vuelve a iniciar sesión.", true);
+    return;
+  }
+  if (!verificationCode) {
+    setFeedback(verifyFeedbackEl, "Ingresa el código de verificación", true);
+    return;
+  }
+
+  try {
+    const result = await completeLogin(pendingVerification.username, pendingVerification.password, verificationCode);
+    if (!result.ok) {
+      setFeedback(verifyFeedbackEl, `Verificación error (${result.status}): ${result.detail}`, true);
+      return;
+    }
+
+    const token = result.data.access_token || result.data.token;
+    safeStorageSet(TOKEN_KEY, token);
+    safeStorageSet(USER_KEY, result.data.user || pendingVerification.username);
+    metaEl.innerText = "Autenticado";
+    document.getElementById("verifyCode").value = "";
+    renderAuthState();
+  } catch (err) {
+    setFeedback(verifyFeedbackEl, `No se pudo verificar la cuenta: ${err?.message || err}`, true);
+  }
+};
+
+window.resendVerificationCode = async function () {
+  const username = pendingVerification.username || document.getElementById("username").value.trim();
+  const password = pendingVerification.password || document.getElementById("password").value;
+  const useVerifyFeedback = Boolean(pendingVerification.username && pendingVerification.password);
+  const report = (message, isError = false) => {
+    if (useVerifyFeedback) setFeedback(verifyFeedbackEl, message, isError);
+    else setAuthMessage(message, isError);
+  };
+
+  if (!username || !password) {
+    report("Captura usuario y contraseña para reenviar el código", true);
+    return;
+  }
+
+  report("Reenviando código...");
+  try {
+    const response = await fetchApi("/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      report(`Reenvío error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    const data = JSON.parse(bodyText);
+    pendingVerification = {
+      username,
+      password,
+      email: pendingVerification.email || data.email || "",
+    };
+    updateVerificationSummary();
+    report(data.message || "Código reenviado. Revisa tu correo.");
+    startResendCooldown(data.resend_cooldown_seconds || 60);
+  } catch (err) {
+    report(`No se pudo reenviar el código: ${err?.message || err}`, true);
+  }
+};
+
+window.requestPasswordReset = async function () {
+  const email = document.getElementById("recoveryEmail").value.trim();
+  const newPassword = document.getElementById("recoveryNewPassword").value;
+  const confirmPassword = document.getElementById("recoveryConfirmPassword").value;
+
+  if (!email || !newPassword || !confirmPassword) {
+    setFeedback(recoveryFeedbackEl, "Todos los campos son obligatorios", true);
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    setFeedback(recoveryFeedbackEl, "Nueva contraseña y confirmación no coinciden", true);
+    return;
+  }
+  if (recoveryFlow.state === "requesting_code" || recoveryFlow.state === "resetting_password") {
+    return;
+  }
+
+  setRecoveryState("requesting_code", "Enviando código...");
+  try {
+    const response = await fetchApi("/auth/request-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setRecoveryState("error", `Recuperación error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    const data = JSON.parse(bodyText);
+    recoveryFlow = { state: "awaiting_code", email, password: newPassword };
+    openRecoveryModal(data.message || "Introduce el código que hemos enviado a tu correo");
+    startRecoveryCooldown(data.resend_cooldown_seconds || 60);
+  } catch (err) {
+    setRecoveryState("error", `No se pudo enviar el código: ${err?.message || err}`, true);
+  }
+};
+
+window.resendPasswordResetCode = async function () {
+  if (!recoveryFlow.email) {
+    setFeedback(recoveryModalFeedbackEl, "Captura tu correo y vuelve a iniciar la recuperación.", true);
+    return;
+  }
+
+  setFeedback(recoveryModalFeedbackEl, "Reenviando código...");
+  try {
+    const response = await fetchApi("/auth/request-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: recoveryFlow.email }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      setFeedback(recoveryModalFeedbackEl, `Reenvío error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    const data = JSON.parse(bodyText);
+    setFeedback(recoveryModalFeedbackEl, data.message || "Código reenviado. Revisa tu correo.");
+    startRecoveryCooldown(data.resend_cooldown_seconds || 60);
+  } catch (err) {
+    setFeedback(recoveryModalFeedbackEl, `No se pudo reenviar el código: ${err?.message || err}`, true);
+  }
+};
+
+window.confirmPasswordResetCode = async function () {
+  const verificationCode = document.getElementById("recoveryModalCode").value.trim();
+  if (!recoveryFlow.email || !recoveryFlow.password) {
+    setFeedback(recoveryModalFeedbackEl, "Inicia de nuevo el flujo de recuperación.", true);
+    return;
+  }
+  if (!verificationCode) {
+    setFeedback(recoveryModalFeedbackEl, "Ingresa el código de verificación", true);
+    return;
+  }
+
+  recoveryFlow.state = "resetting_password";
+  try {
+    const response = await fetchApi("/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: recoveryFlow.email,
+        new_password: recoveryFlow.password,
+        verification_code: verificationCode,
+      }),
+    });
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      let detail = bodyText;
+      try { detail = JSON.parse(bodyText).detail || bodyText; } catch {}
+      recoveryFlow.state = "error";
+      setFeedback(recoveryModalFeedbackEl, `Restablecimiento error (${response.status}): ${detail}`, true);
+      return;
+    }
+
+    const data = JSON.parse(bodyText);
+    recoveryFlow.state = "success";
+    setFeedback(recoveryModalFeedbackEl, data.message || "Contraseña cambiada con éxito");
+    setFeedback(recoveryFeedbackEl, data.message || "Contraseña cambiada con éxito");
+    window.setTimeout(() => {
+      document.getElementById("recoveryNewPassword").value = "";
+      document.getElementById("recoveryConfirmPassword").value = "";
+      document.getElementById("recoveryEmail").value = "";
+      closeRecoveryModal();
+      showLoginView();
+    }, 1200);
+  } catch (err) {
+    recoveryFlow.state = "error";
+    setFeedback(recoveryModalFeedbackEl, `No se pudo restablecer la contraseña: ${err?.message || err}`, true);
+  }
+};
+
 window.logout = function () {
   if (isStreaming) window.stopStreaming();
+  toggleUserMenu(false);
   safeStorageRemove(TOKEN_KEY);
   safeStorageRemove(USER_KEY);
   conversations = [];
   activeChatId = null;
+  pendingVerification = { username: "", password: "", email: "" };
   authMetaEl.innerText = "";
   authErrorEl.innerText = "";
   metaEl.innerText = "Sesión cerrada";
   changePasswordPanelEl.classList.add("hidden");
+  document.getElementById("verifyCode").value = "";
   syncComposerHeight();
   renderAuthState();
 };
@@ -1549,6 +2184,36 @@ window.changePassword = async function () {
     setFeedback(changePasswordFeedbackEl, `No se pudo cambiar contraseña: ${err}`, true);
   }
 };
+
+userMenuButtonEl.addEventListener("click", () => {
+  toggleUserMenu();
+});
+
+userMenuButtonEl.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    toggleUserMenu();
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    toggleUserMenu(false);
+  }
+});
+
+userMenuDropdownEl.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    toggleUserMenu(false);
+    userMenuButtonEl.focus();
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (!isUserMenuOpen) return;
+  if (userMenuButtonEl.contains(event.target) || userMenuDropdownEl.contains(event.target)) return;
+  toggleUserMenu(false);
+});
 
 function parseSseEvents(raw, onToken, onDone, onError) {
   const chunks = raw.split("\n\n");

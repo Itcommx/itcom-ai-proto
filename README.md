@@ -134,11 +134,20 @@ curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -
 El backend ahora expone endpoints de autenticación para la UX del frontend:
 
 - `POST /auth/signup` **y** `POST /api/auth/signup` (alias equivalente)
-  - payload: `{ "username": "nuevo", "password": "secreto123" }`
-  - respuesta exitosa: `{ "status": "ok", "message": "Cuenta creada", "user": "nuevo" }`
+  - payload: `{ "username": "nuevo", "password": "secreto123", "email": "nuevo@empresa.com" }`
+  - respuesta exitosa: crea la cuenta como no verificada, genera un código de 6 dígitos, lo envía por correo y devuelve el cooldown/TTL de verificación.
 - `POST /auth/login` **y** `POST /api/auth/login` (alias equivalente)
-  - payload: `{ "username": "admin", "password": "change_me" }`
+  - payload: `{ "username": "admin", "password": "change_me", "verification_code": "123456" }`
   - respuesta: `{ "access_token": "...", "token_type": "bearer", "expires_in": 3600, "user": "admin" }`
+- `POST /auth/resend-verification` **y** `POST /api/auth/resend-verification` (alias equivalente)
+  - payload: `{ "username": "nuevo", "password": "secreto123" }`
+  - respuesta: reenvía un nuevo código si la cuenta sigue sin verificar y no está dentro del cooldown.
+- `POST /auth/request-password-reset` **y** `POST /api/auth/request-password-reset` (alias equivalente)
+  - payload: `{ "email": "nuevo@empresa.com" }`
+  - respuesta: envía un código de recuperación al correo registrado.
+- `POST /auth/reset-password` **y** `POST /api/auth/reset-password` (alias equivalente)
+  - payload: `{ "email": "nuevo@empresa.com", "verification_code": "123456", "new_password": "new12345" }`
+  - respuesta: actualiza la contraseña si el código es correcto y no expiró.
 - `POST /auth/change-password` **y** `POST /api/auth/change-password` (alias equivalente, requiere `Authorization: Bearer <token>`)
   - payload: `{ "current_password": "old", "new_password": "new12345" }`
   - respuesta: `{ "status": "ok", "message": "Contraseña actualizada", "user": "..." }`
@@ -149,3 +158,73 @@ Ruta recomendada para frontend (con `API_BASE="/api"`):
 Persistencia demo de usuarios:
 - Se usa `AUTH_USERS_PATH` (default `/app/logs/users.json`).
 - En startup se asegura el usuario inicial definido por `AUTH_USERNAME`/`AUTH_PASSWORD`.
+- Las nuevas cuentas guardan correo, estado de verificación, hash del código y expiración/cooldown de reenvío.
+- Configura SMTP con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS` y `SMTP_USE_SSL`.
+- Defaults sugeridos para el flujo actual: `mail.itcom.mx`, `symbiotix@itcom.mx`, puerto `465`, con `SMTP_USE_TLS=true` y `SMTP_USE_SSL=true`.
+
+## External sources configuration
+
+La configuración base para futuros conectores externos se carga desde el mismo módulo central de settings del backend y es opcional para no romper el arranque actual.
+
+- Global:
+  - `EXTERNAL_SOURCES_ENABLED=true`
+  - `EXTERNAL_MAX_RESULTS=20`
+  - `EXTERNAL_DEFAULT_LANG=es`
+  - `EXTERNAL_DEFAULT_LOCALE=mx`
+- Proveedores:
+  - `GDELT_ENABLED=true`
+  - `YOUTUBE_ENABLED=true`
+  - `SEARCHAPI_ENABLED=true`
+  - `YOUTUBE_API_KEY=`
+  - `SEARCHAPI_API_KEY=`
+  - `FIRECRAWL_API_KEY=`
+  - `NEWSAPI_KEY=`
+
+Comportamiento esperado:
+- Si una API key no está configurada, el backend sigue arrancando y el proveedor queda marcado como no disponible desde settings.
+- `GDELT` puede quedar disponible solo con sus switches, ya que no requiere API key en esta base.
+- No se exponen secretos en logs; deja las keys reales únicamente en tu `.env` local o en variables del entorno del despliegue.
+
+### GDELT search endpoint
+
+Primer conector externo habilitado:
+
+- `POST /api/external/search/gdelt`
+  - payload mínimo: `{ "query": "nearshoring mexico" }`
+  - payload extendido: `{ "query": "nearshoring mexico", "max_results": 10, "language": "es", "start_datetime": "20250301000000", "end_datetime": "20250315235959" }`
+  - respuesta: `{ "provider": "gdelt", "query": "...", "count": 0, "results": [] }`
+
+Cada elemento de `results` se normaliza con este formato base:
+- `provider`
+- `source_type`
+- `query`
+- `title`
+- `url`
+- `domain`
+- `published_at`
+- `snippet`
+- `language`
+- `raw_json`
+
+### Modo `news_grounded` en chat
+
+El endpoint `POST /chat` (y su alias `/api/chat` vía nginx) acepta `mode: "news_grounded"` en el payload para responder solo con artículos recientes de GDELT.
+
+Ejemplo:
+
+```json
+{
+  "message": "dame noticias de hoy sobre nearshoring",
+  "mode": "news_grounded",
+  "user": "demo"
+}
+```
+
+Comportamiento:
+- consulta GDELT con `sort=DateDesc`
+- usa ventana temporal por defecto basada en la consulta:
+  - `"hoy"` => `24h`
+  - `"actual"` => `72h`
+- limita resultados a `10`
+- filtra artículos fuera de la ventana y ordena nuevamente por fecha descendente
+- si no hay artículos recientes suficientes, devuelve ese estado explícitamente
